@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Star, ShoppingCart, Shield, Truck, HeartHandshake, Zap } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/hooks/useCart";
+import SnakeGame from "@/components/SnakeGame";
 
 const brands = [
   { name: "iPhone", icon: "📱", count: "120+ covers" },
@@ -309,6 +310,27 @@ export default function Home() {
             </div>
             <p className="text-red-100 text-sm mt-3">No spam, unsubscribe anytime</p>
           </form>
+        </div>
+      </section>
+
+      {/* Game Section */}
+      <section className="py-20 bg-gradient-to-b from-neutral-50 to-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl lg:text-4xl font-bold text-neutral-800 mb-4">
+              Not interested in buying covers right now?
+            </h2>
+            <p className="text-neutral-600 max-w-2xl mx-auto mb-2">
+              No problem just play a game
+            </p>
+            <p className="text-sm text-neutral-500">
+              Enjoy our classic Snake game while browsing
+            </p>
+          </div>
+          
+          <div className="flex justify-center">
+            <SnakeGame />
+          </div>
         </div>
       </section>
     </div>
