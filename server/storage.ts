@@ -6,6 +6,8 @@ import {
   orders,
   orderItems,
   coupons,
+  reviews,
+  otpVerifications,
   type User,
   type UpsertUser,
   type Product,
@@ -20,6 +22,10 @@ import {
   type InsertOrderItem,
   type Coupon,
   type InsertCoupon,
+  type Review,
+  type InsertReview,
+  type OtpVerification,
+  type InsertOtp,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, gte, lte, like, sql } from "drizzle-orm";
@@ -65,6 +71,14 @@ export interface IStorage {
   // Coupon operations
   getCoupon(code: string): Promise<Coupon | undefined>;
   validateCoupon(code: string, amount: number): Promise<{ valid: boolean; discount?: number; message?: string }>;
+  
+  // OTP operations
+  createOtp(otp: InsertOtp): Promise<OtpVerification>;
+  verifyOtp(phoneNumber: string, otp: string): Promise<boolean>;
+  
+  // Review operations
+  createReview(review: InsertReview): Promise<Review>;
+  getProductReviews(productId: number): Promise<(Review & { user: User })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -325,6 +339,68 @@ export class DatabaseStorage implements IStorage {
     }
     
     return { valid: true, discount };
+  }
+
+  // OTP operations
+  async createOtp(otp: InsertOtp): Promise<OtpVerification> {
+    const [newOtp] = await db.insert(otpVerifications).values(otp).returning();
+    return newOtp;
+  }
+
+  async verifyOtp(phoneNumber: string, otp: string): Promise<boolean> {
+    const [verification] = await db
+      .select()
+      .from(otpVerifications)
+      .where(
+        and(
+          eq(otpVerifications.phoneNumber, phoneNumber),
+          eq(otpVerifications.otp, otp),
+          eq(otpVerifications.verified, false),
+          gte(otpVerifications.expiresAt, new Date())
+        )
+      );
+
+    if (verification) {
+      await db
+        .update(otpVerifications)
+        .set({ verified: true })
+        .where(eq(otpVerifications.id, verification.id));
+      return true;
+    }
+    return false;
+  }
+
+  // Review operations
+  async createReview(review: InsertReview): Promise<Review> {
+    const [newReview] = await db.insert(reviews).values(review).returning();
+    return newReview;
+  }
+
+  async getProductReviews(productId: number): Promise<(Review & { user: User })[]> {
+    const productReviews = await db
+      .select({
+        id: reviews.id,
+        productId: reviews.productId,
+        userId: reviews.userId,
+        rating: reviews.rating,
+        title: reviews.title,
+        comment: reviews.comment,
+        verified: reviews.verified,
+        helpful: reviews.helpful,
+        createdAt: reviews.createdAt,
+        user: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+      .from(reviews)
+      .innerJoin(users, eq(reviews.userId, users.id))
+      .where(eq(reviews.productId, productId))
+      .orderBy(desc(reviews.createdAt));
+
+    return productReviews as (Review & { user: User })[];
   }
 }
 

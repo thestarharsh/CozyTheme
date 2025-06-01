@@ -305,6 +305,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Razorpay payment routes
+  app.post("/api/create-order", isAuthenticated, async (req: any, res) => {
+    try {
+      const { amount, currency = "INR" } = req.body;
+      
+      const options = {
+        amount: amount * 100, // Convert to paise
+        currency,
+        receipt: `receipt_${Date.now()}`,
+      };
+
+      const order = await razorpay.orders.create(options);
+      res.json(order);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error creating payment order", error: error.message });
+    }
+  });
+
+  app.post("/api/verify-payment", isAuthenticated, async (req: any, res) => {
+    try {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+      
+      const sign = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSign = crypto
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+        .update(sign.toString())
+        .digest("hex");
+
+      if (razorpay_signature === expectedSign) {
+        res.json({ success: true, message: "Payment verified successfully" });
+      } else {
+        res.status(400).json({ success: false, message: "Invalid signature" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: "Error verifying payment", error: error.message });
+    }
+  });
+
+  // OTP routes
+  app.post("/api/send-otp", async (req, res) => {
+    try {
+      const { phoneNumber } = req.body;
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+      
+      await storage.createOtp({ phoneNumber, otp, expiresAt });
+      
+      // In production, integrate with SMS service like Twilio
+      console.log(`OTP for ${phoneNumber}: ${otp}`);
+      
+      res.json({ message: "OTP sent successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error sending OTP", error: error.message });
+    }
+  });
+
+  app.post("/api/verify-otp", async (req, res) => {
+    try {
+      const { phoneNumber, otp } = req.body;
+      const isValid = await storage.verifyOtp(phoneNumber, otp);
+      
+      if (isValid) {
+        res.json({ success: true, message: "OTP verified successfully" });
+      } else {
+        res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: "Error verifying OTP", error: error.message });
+    }
+  });
+
+  // Reviews routes
+  app.get("/api/products/:id/reviews", async (req, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const reviews = await storage.getProductReviews(productId);
+      res.json(reviews);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching reviews", error: error.message });
+    }
+  });
+
+  app.post("/api/products/:id/reviews", isAuthenticated, async (req: any, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      const { rating, title, comment } = req.body;
+      
+      const review = await storage.createReview({
+        productId,
+        userId,
+        rating,
+        title,
+        comment,
+      });
+      
+      res.json(review);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error creating review", error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
