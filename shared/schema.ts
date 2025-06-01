@@ -170,6 +170,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   }),
   cartItems: many(cartItems),
   orderItems: many(orderItems),
+  reviews: many(reviews),
 }));
 
 export const cartItemsRelations = relations(cartItems, ({ one }) => ({
@@ -199,6 +200,17 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   product: one(products, {
     fields: [orderItems.productId],
     references: [products.id],
+  }),
+}));
+
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  product: one(products, {
+    fields: [reviews.productId],
+    references: [products.id],
+  }),
+  user: one(users, {
+    fields: [reviews.userId],
+    references: [users.id],
   }),
 }));
 
@@ -257,3 +269,18 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type Coupon = typeof coupons.$inferSelect;
 export type InsertCoupon = z.infer<typeof insertCouponSchema>;
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = typeof insertReviewSchema;
+export type OtpVerification = typeof otpVerifications.$inferSelect;
+export type InsertOtp = typeof insertOtpSchema;
+
+// Schema exports for new tables
+export const insertReviewSchema = createInsertSchema(reviews).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertOtpSchema = createInsertSchema(otpVerifications).omit({
+  id: true,
+  createdAt: true,
+});
