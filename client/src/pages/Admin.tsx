@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit, Trash2, Package, Users, ShoppingCart, TrendingUp, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Users, ShoppingCart, TrendingUp, Eye, Download, Upload } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -51,6 +51,8 @@ export default function Admin() {
   
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [productForm, setProductForm] = useState({
     name: "",
     description: "",
@@ -203,6 +205,87 @@ export default function Admin() {
       toast({
         title: "Error",
         description: "Failed to update order status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Excel export/import mutations
+  const exportOrdersMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/admin/orders/export', {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Export failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `orders_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    },
+    onSuccess: () => {
+      toast({ title: "Orders exported successfully" });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "Your session has expired. Please sign in again.",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to export orders",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const importOrdersMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/admin/orders/import', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error('Import failed');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setIsImportModalOpen(false);
+      setImportFile(null);
+      toast({ 
+        title: "Import completed",
+        description: `Processed: ${data.summary.processed}, Updated: ${data.summary.updated}, Errors: ${data.summary.errors}`
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized", 
+          description: "Your session has expired. Please sign in again.",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to import orders",
         variant: "destructive",
       });
     },

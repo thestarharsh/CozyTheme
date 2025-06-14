@@ -6,6 +6,21 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import { insertProductSchema, insertCategorySchema, insertCartItemSchema, insertOrderSchema } from "@shared/schema";
 import { z } from "zod";
+import * as XLSX from "xlsx";
+import multer from "multer";
+
+// Configure multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+        file.mimetype === 'application/vnd.ms-excel') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files are allowed'));
+    }
+  }
+});
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -404,6 +419,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(review);
     } catch (error: any) {
       res.status(500).json({ message: "Error creating review", error: error.message });
+    }
+  });
+
+  // Admin Excel export/import routes
+  app.get('/api/admin/orders/export', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const orders = await storage.getOrders();
+      
+      // Transform orders data for Excel export
+      const excelData = orders.map(order => ({
+        'Order ID': order.id,
+        'Order Number': order.orderNumber,
+        'User ID': order.userId,
+        'Status': order.status,
+        'Total Amount': parseFloat(order.totalAmount),
+        'Payment Method': order.paymentMethod,
+        'Payment Status': order.paymentStatus,
+        'Shipping Address': order.shippingAddress,
+        'Billing Address': order.billingAddress,
+        'Notes': order.notes,
+        'Created At': order.createdAt?.toISOString(),
+        'Updated At': order.updatedAt?.toISOString()
+      }));
+
+      // Create workbook and worksheet
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      // Set headers for file download
+      res.setHeader('Content-Disposition', `attachment; filename=orders_${new Date().toISOString().split('T')[0]}.xlsx`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting orders:", error);
+      res.status(500).json({ message: "Failed to export orders" });
+    }
+  });
+
+  app.post('/api/admin/orders/import', isAuthenticated, upload.single('file'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Parse Excel file
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (!jsonData.length) {
+        return res.status(400).json({ message: "Excel file is empty" });
+      }
+
+      let processed = 0;
+      let updated = 0;
+      let added = 0;
+      let errors: string[] = [];
+
+      for (const row of jsonData as any[]) {
+        try {
+          const orderId = row['Order ID'];
+          const orderData = {
+            orderNumber: row['Order Number'],
+            userId: row['User ID'],
+            status: row['Status'],
+            totalAmount: row['Total Amount']?.toString(),
+            paymentMethod: row['Payment Method'],
+            paymentStatus: row['Payment Status'],
+            shippingAddress: row['Shipping Address'],
+            billingAddress: row['Billing Address'],
+            notes: row['Notes']
+          };
+
+          if (orderId) {
+            // Update existing order
+            try {
+              await storage.updateOrderStatus(orderId, orderData.status);
+              updated++;
+            } catch (updateError) {
+              errors.push(`Failed to update order ID ${orderId}: ${updateError}`);
+            }
+          } else {
+            // This would be for adding new orders, but we don't have a direct method
+            // We'll skip for now since orders are typically created through the checkout process
+            errors.push(`Skipped row without Order ID`);
+          }
+          
+          processed++;
+        } catch (rowError) {
+          errors.push(`Error processing row ${processed + 1}: ${rowError}`);
+        }
+      }
+
+      res.json({
+        message: "Import completed",
+        summary: {
+          processed,
+          updated,
+          added,
+          errors: errors.length
+        },
+        errors: errors.slice(0, 10) // Limit to first 10 errors
+      });
+
+    } catch (error) {
+      console.error("Error importing orders:", error);
+      res.status(500).json({ message: "Failed to import orders" });
     }
   });
 
