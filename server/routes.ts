@@ -10,6 +10,7 @@ import * as XLSX from "xlsx";
 import multer from "multer";
 import { AuthenticatedRequest, AdminRequest, ApiError } from "./types";
 import { clerkClient } from "@clerk/clerk-sdk-node";
+import { hasAdminAccess, requireAdminAccess } from "./access";
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -56,11 +57,7 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
       throw new ApiError(401, "User not authenticated");
     }
 
-    const hasAccess = await hasAdminAccess(userId);
-    if (!hasAccess) {
-      throw new ApiError(403, "Admin access required");
-    }
-
+    await requireAdminAccess(userId);
     next();
   } catch (error) {
     if (error instanceof ApiError) {
@@ -190,10 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new ApiError(401, "User not authenticated");
       }
 
-      const user = await clerkClient.users.getUser(userId);
-      if (user.publicMetadata.role !== 'admin') {
-        throw new ApiError(403, "Admin access required");
-      }
+      await requireAdminAccess(userId);
 
       const productData = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(productData);
@@ -218,10 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new ApiError(401, "User not authenticated");
       }
 
-      const user = await clerkClient.users.getUser(userId);
-      if (user.publicMetadata.role !== 'admin') {
-        throw new ApiError(403, "Admin access required");
-      }
+      await requireAdminAccess(userId);
 
       const productId = parseInt(req.params.id);
       const productData = insertProductSchema.parse(req.body);
@@ -247,10 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new ApiError(401, "User not authenticated");
       }
 
-      const user = await clerkClient.users.getUser(userId);
-      if (user.publicMetadata.role !== 'admin') {
-        throw new ApiError(403, "Admin access required");
-      }
+      await requireAdminAccess(userId);
 
       const productId = parseInt(req.params.id);
       await storage.deleteProduct(productId);
@@ -398,8 +386,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new ApiError(401, "User not authenticated");
       }
 
-      const user = await clerkClient.users.getUser(userId);
-      const orders = user.publicMetadata.role === 'admin' 
+      const isAdmin = await hasAdminAccess(userId);
+      const orders = isAdmin 
         ? await storage.getOrders() 
         : await storage.getOrders(userId);
 
@@ -430,8 +418,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns the order or is an admin
-      const user = await clerkClient.users.getUser(userId);
-      if (order.userId !== userId && user.publicMetadata.role !== 'admin') {
+      const isAdmin = await hasAdminAccess(userId);
+      if (order.userId !== userId && !isAdmin) {
         throw new ApiError(403, "Access denied");
       }
 
@@ -454,10 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new ApiError(401, "User not authenticated");
       }
 
-      const user = await clerkClient.users.getUser(userId);
-      if (user.publicMetadata.role !== 'admin') {
-        throw new ApiError(403, "Admin access required");
-      }
+      await requireAdminAccess(userId);
 
       const orderId = parseInt(req.params.id);
       const { status } = req.body;
@@ -596,10 +581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin/orders/export', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
+      await requireAdminAccess(userId);
 
       const orders = await storage.getOrders();
       
@@ -641,10 +623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/orders/import', isAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
+      await requireAdminAccess(userId);
 
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });

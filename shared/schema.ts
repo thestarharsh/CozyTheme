@@ -230,6 +230,9 @@ export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  price: z.union([z.string(), z.number()]).transform(val => val.toString()),
+  originalPrice: z.union([z.string(), z.number()]).transform(val => val.toString()).optional(),
 });
 
 export const insertCartItemSchema = createInsertSchema(cartItems).omit({

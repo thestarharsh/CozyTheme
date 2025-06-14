@@ -19,7 +19,11 @@ function Router() {
   const [location] = useLocation();
 
   if (!isLoaded) {
-    return <div>Loading...</div>;
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="h-12 w-12 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
   }
   
   const isAuthPage = location === "/sign-in" || location === "/sign-up";
