@@ -28,7 +28,8 @@ import {
   type InsertOtp,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, gte, lte, like, sql } from "drizzle-orm";
+import { eq, desc, and, or, gte, lte, like, sql, SQL } from "drizzle-orm";
+import { ApiError } from "./types";
 
 // Interface for storage operations
 export interface IStorage {
@@ -124,7 +125,7 @@ export class DatabaseStorage implements IStorage {
   }): Promise<Product[]> {
     let query = db.select().from(products);
     
-    const conditions: any[] = [eq(products.inStock, true)];
+    const conditions: SQL[] = [eq(products.inStock, true)];
     
     if (filters) {
       if (filters.category) {
@@ -154,12 +155,28 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    return await query.where(and(...conditions)).orderBy(desc(products.createdAt));
+    try {
+      return await query.where(and(...conditions)).orderBy(desc(products.createdAt));
+    } catch (error) {
+      throw new ApiError({
+        status: 500,
+        message: "Failed to fetch products",
+        details: error
+      });
+    }
   }
 
   async getProduct(id: number): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
-    return product;
+    try {
+      const [product] = await db.select().from(products).where(eq(products.id, id));
+      return product;
+    } catch (error) {
+      throw new ApiError({
+        status: 500,
+        message: "Failed to fetch product",
+        details: error
+      });
+    }
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {

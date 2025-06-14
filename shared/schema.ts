@@ -94,6 +94,7 @@ export const orders = pgTable("orders", {
   status: varchar("status").notNull().default("pending"), // pending, confirmed, shipped, delivered, cancelled
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   shippingAddress: jsonb("shipping_address").notNull(),
+  billingAddress: jsonb("billing_address").notNull(),
   paymentMethod: varchar("payment_method").notNull(), // online, cod
   paymentStatus: varchar("payment_status").default("pending"), // pending, completed, failed
   notes: text("notes"),
@@ -216,7 +217,6 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -251,7 +251,16 @@ export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
 export const insertCouponSchema = createInsertSchema(coupons).omit({
   id: true,
   createdAt: true,
-  usedCount: true,
+});
+
+export const insertReviewSchema = createInsertSchema(reviews).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertOtpSchema = createInsertSchema(otpVerifications).omit({
+  id: true,
+  createdAt: true,
 });
 
 // Types
@@ -270,17 +279,6 @@ export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type Coupon = typeof coupons.$inferSelect;
 export type InsertCoupon = z.infer<typeof insertCouponSchema>;
 export type Review = typeof reviews.$inferSelect;
-export type InsertReview = typeof insertReviewSchema;
+export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
-export type InsertOtp = typeof insertOtpSchema;
-
-// Schema exports for new tables
-export const insertReviewSchema = createInsertSchema(reviews).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertOtpSchema = createInsertSchema(otpVerifications).omit({
-  id: true,
-  createdAt: true,
-});
+export type InsertOtp = z.infer<typeof insertOtpSchema>;

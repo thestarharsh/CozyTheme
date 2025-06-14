@@ -12,10 +12,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Edit, Trash2, Package, Users, ShoppingCart, TrendingUp, Eye, Download, Upload } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useUser } from "@clerk/clerk-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+
+const adminAccessEmails = [
+  'testdevbyharsh@gmail.com',
+  "cozygripzdev@gmail.com",
+];
 
 interface Product {
   id: number;
@@ -45,7 +50,7 @@ interface Order {
 }
 
 export default function Admin() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isSignedIn } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -67,19 +72,31 @@ export default function Admin() {
     featured: false,
   });
 
+  // Queries
+  const { data: products = [] as Product[] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+    retry: false,
+  });
+
+  const { data: orders = [] as Order[] } = useQuery<Order[]>({
+    queryKey: ["/api/orders"],
+    retry: false,
+  });
+
   // Redirect if not admin
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isSignedIn) {
       toast({
         title: "Access Denied",
         description: "Please sign in to access admin panel",
         variant: "destructive",
       });
-      window.location.href = "/api/login";
+      window.location.href = "/sign-in";
       return;
     }
     
-    if (user && user.role !== 'admin') {
+    const userEmail = user?.primaryEmailAddress?.emailAddress;
+    if (!userEmail || !adminAccessEmails.includes(userEmail)) {
       toast({
         title: "Access Denied",
         description: "You don't have admin privileges",
@@ -88,18 +105,7 @@ export default function Admin() {
       window.location.href = "/";
       return;
     }
-  }, [isAuthenticated, user, toast]);
-
-  // Queries
-  const { data: products = [], refetch: refetchProducts } = useQuery({
-    queryKey: ["/api/products"],
-    retry: false,
-  });
-
-  const { data: orders = [] } = useQuery({
-    queryKey: ["/api/orders"],
-    retry: false,
-  });
+  }, [isSignedIn, user, toast]);
 
   // Mutations
   const createProductMutation = useMutation({
@@ -349,7 +355,7 @@ export default function Admin() {
   const totalRevenue = orders.reduce((sum: number, order: Order) => sum + parseFloat(order.totalAmount), 0);
   const pendingOrders = orders.filter((order: Order) => order.status === 'pending').length;
 
-  if (!isAuthenticated || (user && user.role !== 'admin')) {
+  if (!isSignedIn) {
     return null;
   }
 

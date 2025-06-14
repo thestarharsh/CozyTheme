@@ -1,13 +1,15 @@
-import type { Express } from "express";
+import type { Express, Request, Response, RequestHandler, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./clerkAuth";
 import Razorpay from "razorpay";
 import crypto from "crypto";
-import { insertProductSchema, insertCategorySchema, insertCartItemSchema, insertOrderSchema } from "@shared/schema";
+import { insertProductSchema, insertCategorySchema, insertCartItemSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import multer from "multer";
+import { AuthenticatedRequest, AdminRequest, ApiError } from "./types";
+import { clerkClient } from "@clerk/clerk-sdk-node";
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -28,49 +30,113 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
+const adminAccessEmails = [
+  'testdevbyharsh@gmail.com',
+  "cozygripzdev@gmail.com",
+];
+
+// Helper function to check if user has admin access
+const hasAdminAccess = async (userId: string): Promise<boolean> => {
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const userEmail = user.emailAddresses[0]?.emailAddress;
+    return userEmail ? adminAccessEmails.includes(userEmail) : false;
+  } catch (error) {
+    console.error("Error checking admin access:", error);
+    return false;
+  }
+};
+
+// Admin middleware
+const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.auth.userId;
+    if (!userId) {
+      throw new ApiError(401, "User not authenticated");
+    }
+
+    const hasAccess = await hasAdminAccess(userId);
+    if (!hasAccess) {
+      throw new ApiError(403, "Admin access required");
+    }
+
+    next();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      res.status(error.status).json({ message: error.message });
+    } else {
+      console.error("Error checking admin access:", error);
+      res.status(500).json({ message: "Failed to check admin access" });
+    }
+  }
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
+      const user = await clerkClient.users.getUser(userId);
+      const isAdmin = await hasAdminAccess(userId);
+      
+      res.json({
+        id: user.id,
+        email: user.emailAddresses[0]?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: isAdmin ? 'admin' : 'user',
+        profileImageUrl: user.imageUrl,
+      });
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error fetching user:", error);
+        res.status(500).json({ message: "Failed to fetch user" });
+      }
     }
-  });
+  }) as RequestHandler);
 
   // Category routes
-  app.get('/api/categories', async (req, res) => {
+  app.get('/api/categories', (async (req: Request, res: Response) => {
     try {
       const categories = await storage.getCategories();
       res.json(categories);
     } catch (error) {
-      console.error("Error fetching categories:", error);
-      res.status(500).json({ message: "Failed to fetch categories" });
-    }
-  });
-
-  app.post('/api/categories', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
+      if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error fetching categories:", error);
+        res.status(500).json({ message: "Failed to fetch categories" });
       }
+    }
+  }) as RequestHandler);
 
+  app.post('/api/categories', isAuthenticated, isAdmin, (async (req: Request, res: Response) => {
+    try {
       const categoryData = insertCategorySchema.parse(req.body);
       const category = await storage.createCategory(categoryData);
       res.json(category);
     } catch (error) {
-      console.error("Error creating category:", error);
-      res.status(500).json({ message: "Failed to create category" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      } else if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error creating category:", error);
+        res.status(500).json({ message: "Failed to create category" });
+      }
     }
-  });
+  }) as RequestHandler);
 
   // Product routes
   app.get('/api/products', async (req, res) => {
@@ -116,73 +182,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/products', isAuthenticated, async (req: any, res) => {
+  app.post('/api/products', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
+      const user = await clerkClient.users.getUser(userId);
+      if (user.publicMetadata.role !== 'admin') {
+        throw new ApiError(403, "Admin access required");
       }
 
       const productData = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(productData);
       res.json(product);
     } catch (error) {
-      console.error("Error creating product:", error);
-      res.status(500).json({ message: "Failed to create product" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid product data", errors: error.errors });
+      } else if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error creating product:", error);
+        res.status(500).json({ message: "Failed to create product" });
+      }
     }
-  });
+  }) as RequestHandler);
 
-  app.put('/api/products/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/products/:id', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
       }
 
-      const id = parseInt(req.params.id);
-      const productData = insertProductSchema.partial().parse(req.body);
-      const product = await storage.updateProduct(id, productData);
+      const user = await clerkClient.users.getUser(userId);
+      if (user.publicMetadata.role !== 'admin') {
+        throw new ApiError(403, "Admin access required");
+      }
+
+      const productId = parseInt(req.params.id);
+      const productData = insertProductSchema.parse(req.body);
+      const product = await storage.updateProduct(productId, productData);
       res.json(product);
     } catch (error) {
-      console.error("Error updating product:", error);
-      res.status(500).json({ message: "Failed to update product" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid product data", errors: error.errors });
+      } else if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error updating product:", error);
+        res.status(500).json({ message: "Failed to update product" });
+      }
     }
-  });
+  }) as RequestHandler);
 
-  app.delete('/api/products/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/products/:id', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
       }
 
-      const id = parseInt(req.params.id);
-      await storage.deleteProduct(id);
+      const user = await clerkClient.users.getUser(userId);
+      if (user.publicMetadata.role !== 'admin') {
+        throw new ApiError(403, "Admin access required");
+      }
+
+      const productId = parseInt(req.params.id);
+      await storage.deleteProduct(productId);
       res.json({ message: "Product deleted successfully" });
     } catch (error) {
-      console.error("Error deleting product:", error);
-      res.status(500).json({ message: "Failed to delete product" });
+      if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error deleting product:", error);
+        res.status(500).json({ message: "Failed to delete product" });
+      }
     }
-  });
+  }) as RequestHandler);
 
   // Cart routes
-  app.get('/api/cart', isAuthenticated, async (req: any, res) => {
+  app.get('/api/cart', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
       const cartItems = await storage.getCartItems(userId);
       res.json(cartItems);
     } catch (error) {
-      console.error("Error fetching cart:", error);
-      res.status(500).json({ message: "Failed to fetch cart" });
+      if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error fetching cart:", error);
+        res.status(500).json({ message: "Failed to fetch cart" });
+      }
     }
-  });
+  }) as RequestHandler);
 
-  app.post('/api/cart', isAuthenticated, async (req: any, res) => {
+  app.post('/api/cart', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
       const cartItemData = insertCartItemSchema.parse({
         ...req.body,
         userId
@@ -190,10 +301,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cartItem = await storage.addToCart(cartItemData);
       res.json(cartItem);
     } catch (error) {
-      console.error("Error adding to cart:", error);
-      res.status(500).json({ message: "Failed to add to cart" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid cart item data", errors: error.errors });
+      } else if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error adding to cart:", error);
+        res.status(500).json({ message: "Failed to add to cart" });
+      }
     }
-  });
+  }) as RequestHandler);
 
   app.put('/api/cart/:id', isAuthenticated, async (req: any, res) => {
     try {
@@ -230,83 +347,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Order routes
-  app.post('/api/orders', isAuthenticated, async (req: any, res) => {
+  app.post('/api/orders', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const { items, shippingAddress, paymentMethod, totalAmount } = req.body;
-      
-      // Generate order number
-      const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      const orderData = insertOrderSchema.parse({
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
+      const { items, ...orderData } = req.body;
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        throw new ApiError(400, "Order must contain at least one item");
+      }
+
+      // Validate order items
+      const validatedItems = items.map(item => insertOrderItemSchema.parse(item));
+
+      // Validate order data
+      const validatedOrderData = insertOrderSchema.parse({
+        ...orderData,
         userId,
-        orderNumber,
-        totalAmount,
-        shippingAddress,
-        paymentMethod,
         status: 'pending',
-        paymentStatus: paymentMethod === 'cod' ? 'pending' : 'completed'
+        orderNumber: `ORD-${Date.now()}`,
+        paymentStatus: 'pending'
       });
-      
-      const order = await storage.createOrder(orderData, items);
-      
+
+      const order = await storage.createOrder(validatedOrderData, validatedItems);
+
       // Clear cart after successful order
       await storage.clearCart(userId);
-      
+
       res.json(order);
     } catch (error) {
-      console.error("Error creating order:", error);
-      res.status(500).json({ message: "Failed to create order" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid order data", errors: error.errors });
+      } else if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error creating order:", error);
+        res.status(500).json({ message: "Failed to create order" });
+      }
     }
-  });
+  }) as RequestHandler);
 
-  app.get('/api/orders', isAuthenticated, async (req: any, res) => {
+  app.get('/api/orders', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      const orders = user?.role === 'admin' 
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
+      const user = await clerkClient.users.getUser(userId);
+      const orders = user.publicMetadata.role === 'admin' 
         ? await storage.getOrders() 
         : await storage.getOrders(userId);
-      
+
       res.json(orders);
     } catch (error) {
-      console.error("Error fetching orders:", error);
-      res.status(500).json({ message: "Failed to fetch orders" });
+      if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error fetching orders:", error);
+        res.status(500).json({ message: "Failed to fetch orders" });
+      }
     }
-  });
+  }) as RequestHandler);
 
-  app.get('/api/orders/:id', isAuthenticated, async (req: any, res) => {
+  app.get('/api/orders/:id', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
-      const order = await storage.getOrder(id);
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
+      const orderId = parseInt(req.params.id);
+      const order = await storage.getOrder(orderId);
+      
       if (!order) {
-        return res.status(404).json({ message: "Order not found" });
+        throw new ApiError(404, "Order not found");
       }
+
+      // Check if user owns the order or is an admin
+      const user = await clerkClient.users.getUser(userId);
+      if (order.userId !== userId && user.publicMetadata.role !== 'admin') {
+        throw new ApiError(403, "Access denied");
+      }
+
       res.json(order);
     } catch (error) {
-      console.error("Error fetching order:", error);
-      res.status(500).json({ message: "Failed to fetch order" });
+      if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error fetching order:", error);
+        res.status(500).json({ message: "Failed to fetch order" });
+      }
     }
-  });
+  }) as RequestHandler);
 
-  app.put('/api/orders/:id/status', isAuthenticated, async (req: any, res) => {
+  app.put('/api/orders/:id/status', isAuthenticated, (async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
       }
 
-      const id = parseInt(req.params.id);
+      const user = await clerkClient.users.getUser(userId);
+      if (user.publicMetadata.role !== 'admin') {
+        throw new ApiError(403, "Admin access required");
+      }
+
+      const orderId = parseInt(req.params.id);
       const { status } = req.body;
-      const order = await storage.updateOrderStatus(id, status);
+
+      if (!status || !['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].includes(status)) {
+        throw new ApiError(400, "Invalid status");
+      }
+
+      const order = await storage.updateOrderStatus(orderId, status);
       res.json(order);
     } catch (error) {
-      console.error("Error updating order status:", error);
-      res.status(500).json({ message: "Failed to update order status" });
+      if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error("Error updating order status:", error);
+        res.status(500).json({ message: "Failed to update order status" });
+      }
     }
-  });
+  }) as RequestHandler);
 
   // Coupon routes
   app.post('/api/coupons/validate', async (req, res) => {
