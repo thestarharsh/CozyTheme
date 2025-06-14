@@ -16,12 +16,14 @@ import { hasAdminAccess, requireAdminAccess } from "./access";
 const upload = multer({ 
   storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
-        file.mimetype === 'application/vnd.ms-excel') {
+    if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only Excel files are allowed'));
+      cb(new Error('Only image files are allowed'));
     }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
   }
 });
 
@@ -35,18 +37,6 @@ const adminAccessEmails = [
   'testdevbyharsh@gmail.com',
   "cozygripzdev@gmail.com",
 ];
-
-// Helper function to check if user has admin access
-const hasAdminAccess = async (userId: string): Promise<boolean> => {
-  try {
-    const user = await clerkClient.users.getUser(userId);
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-    return userEmail ? adminAccessEmails.includes(userEmail) : false;
-  } catch (error) {
-    console.error("Error checking admin access:", error);
-    return false;
-  }
-};
 
 // Admin middleware
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
@@ -179,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/products', isAuthenticated, (async (req: Request, res: Response) => {
+  app.post('/api/products', isAuthenticated, upload.single('image'), (async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthenticatedRequest;
       const userId = authReq.auth.userId;
@@ -189,7 +179,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await requireAdminAccess(userId);
 
-      const productData = insertProductSchema.parse(req.body);
+      if (!req.file) {
+        throw new ApiError(400, "Product image is required");
+      }
+
+      // Convert the image buffer to base64
+      const imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+      const productData = insertProductSchema.parse({
+        ...req.body,
+        imageUrl: imageBase64
+      });
+      
       const product = await storage.createProduct(productData);
       res.json(product);
     } catch (error) {
@@ -204,7 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }) as RequestHandler);
 
-  app.put('/api/products/:id', isAuthenticated, (async (req: Request, res: Response) => {
+  app.put('/api/products/:id', isAuthenticated, upload.single('image'), (async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthenticatedRequest;
       const userId = authReq.auth.userId;
@@ -215,9 +216,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await requireAdminAccess(userId);
 
       const productId = parseInt(req.params.id);
-      const productData = insertProductSchema.parse(req.body);
-      const product = await storage.updateProduct(productId, productData);
-      res.json(product);
+      const productData = { ...req.body };
+
+      // If a new image is uploaded, convert it to base64
+      if (req.file) {
+        const imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+        productData.imageUrl = imageBase64;
+      }
+
+      const validatedData = insertProductSchema.parse(productData);
+      const updatedProduct = await storage.updateProduct(productId, validatedData);
+      res.json(updatedProduct);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid product data", errors: error.errors });

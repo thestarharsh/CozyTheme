@@ -49,6 +49,20 @@ interface Order {
   createdAt: string;
 }
 
+interface ProductFormData {
+  name: string;
+  description: string;
+  price: string;
+  originalPrice?: string;
+  brand: string;
+  model: string;
+  material: string;
+  color?: string;
+  image: File | null;
+  stockQuantity: number;
+  featured: boolean;
+}
+
 export default function Admin() {
   const { user, isSignedIn } = useUser();
   const { toast } = useToast();
@@ -58,7 +72,7 @@ export default function Admin() {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [productForm, setProductForm] = useState({
+  const [productForm, setProductForm] = useState<ProductFormData>({
     name: "",
     description: "",
     price: "",
@@ -67,7 +81,7 @@ export default function Admin() {
     model: "",
     material: "",
     color: "",
-    imageUrl: "",
+    image: null,
     stockQuantity: 0,
     featured: false,
   });
@@ -109,19 +123,24 @@ export default function Admin() {
 
   // Mutations
   const createProductMutation = useMutation({
-    mutationFn: async (productData: any) => {
-      await apiRequest("POST", "/api/products", productData);
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) throw new Error('Failed to create product');
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       setIsProductModalOpen(false);
       resetProductForm();
-      toast({ title: "Product created successfully" });
+      toast({ title: "Success", description: "Product created successfully" });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
+          title: "Unauthorized", 
           description: "Your session has expired. Please sign in again.",
           variant: "destructive",
         });
@@ -137,19 +156,24 @@ export default function Admin() {
   });
 
   const updateProductMutation = useMutation({
-    mutationFn: async ({ id, ...productData }: any) => {
-      await apiRequest("PUT", `/api/products/${id}`, productData);
+    mutationFn: async ({ id, formData }: { id: number; formData: FormData }) => {
+      const response = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        body: formData,
+      });
+      if (!response.ok) throw new Error('Failed to update product');
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       setIsProductModalOpen(false);
       resetProductForm();
-      toast({ title: "Product updated successfully" });
+      toast({ title: "Success", description: "Product updated successfully" });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
+          title: "Unauthorized", 
           description: "Your session has expired. Please sign in again.",
           variant: "destructive",
         });
@@ -307,7 +331,7 @@ export default function Admin() {
       model: "",
       material: "",
       color: "",
-      imageUrl: "",
+      image: null,
       stockQuantity: 0,
       featured: false,
     });
@@ -325,27 +349,54 @@ export default function Admin() {
       model: product.model,
       material: product.material,
       color: product.color || "",
-      imageUrl: product.imageUrl,
+      image: null,
       stockQuantity: product.stockQuantity,
       featured: product.featured,
     });
     setIsProductModalOpen(true);
   };
 
-  const handleProductSubmit = (e: React.FormEvent) => {
+  const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const productData = {
-      ...productForm,
-      price: parseFloat(productForm.price),
-      originalPrice: productForm.originalPrice ? parseFloat(productForm.originalPrice) : undefined,
-      inStock: productForm.stockQuantity > 0,
-    };
+    const formData = new FormData();
+    
+    // Append all form fields with proper type conversion
+    Object.entries(productForm).forEach(([key, value]) => {
+      if (key !== 'image' && value !== null) {
+        if (key === 'stockQuantity') {
+          formData.append(key, value.toString());
+        } else if (key === 'featured') {
+          formData.append(key, value.toString());
+        } else if (key === 'price' || key === 'originalPrice') {
+          formData.append(key, value.toString());
+        } else {
+          formData.append(key, value.toString());
+        }
+      }
+    });
 
-    if (selectedProduct) {
-      updateProductMutation.mutate({ id: selectedProduct.id, ...productData });
-    } else {
-      createProductMutation.mutate(productData);
+    // Append image if exists
+    if (productForm.image) {
+      formData.append('image', productForm.image);
+    } else if (!selectedProduct) {
+      // If it's a new product and no image is selected
+      toast({
+        title: "Error",
+        description: "Please select an image for the product",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (selectedProduct) {
+        await updateProductMutation.mutateAsync({ id: selectedProduct.id, formData });
+      } else {
+        await createProductMutation.mutateAsync(formData);
+      }
+    } catch (error) {
+      console.error('Error submitting product:', error);
     }
   };
 
@@ -552,14 +603,49 @@ export default function Admin() {
                         </div>
 
                         <div>
-                          <Label htmlFor="imageUrl">Image URL</Label>
+                          <Label htmlFor="image">Product Image</Label>
                           <Input
-                            id="imageUrl"
-                            type="url"
-                            value={productForm.imageUrl}
-                            onChange={(e) => setProductForm(prev => ({ ...prev, imageUrl: e.target.value }))}
-                            required
+                            id="image"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                                  toast({
+                                    title: "Error",
+                                    description: "Image size should be less than 5MB",
+                                    variant: "destructive",
+                                  });
+                                  e.target.value = ''; // Clear the file input
+                                  return;
+                                }
+                                if (!file.type.startsWith('image/')) {
+                                  toast({
+                                    title: "Error",
+                                    description: "Please upload an image file",
+                                    variant: "destructive",
+                                  });
+                                  e.target.value = ''; // Clear the file input
+                                  return;
+                                }
+                                setProductForm(prev => ({ ...prev, image: file }));
+                                toast({
+                                  title: "Success",
+                                  description: "Image selected successfully",
+                                });
+                              }
+                            }}
+                            required={!selectedProduct} // Only required for new products
                           />
+                          <p className="mt-1 text-sm text-gray-500">
+                            Max file size: 5MB. Supported formats: JPG, JPEG, PNG, GIF
+                          </p>
+                          {productForm.image && (
+                            <p className="mt-1 text-sm text-green-600">
+                              Image selected: {productForm.image.name}
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex justify-end space-x-2">

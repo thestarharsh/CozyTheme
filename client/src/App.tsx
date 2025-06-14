@@ -13,6 +13,7 @@ import Admin from "@/pages/Admin";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CartSidebar from "@/components/CartSidebar";
+import { ProductForm } from './components/ProductForm';
 
 function Router() {
   const { isSignedIn, isLoaded } = useUser();
@@ -51,6 +52,7 @@ function Router() {
             </div>
           </Route>
           {isSignedIn && <Route path="/admin" component={Admin} />}
+          <Route path="/admin/products/new" component={ProductForm} />
           <Route component={NotFound} />
         </Switch>
       </main>
