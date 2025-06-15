@@ -75,8 +75,9 @@ export default function Header() {
           </form>
 
           {/* Actions */}
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" className="md:hidden">
+          <div className="flex items-center space-x-2">
+            {/* Remove search button from mobile view */}
+            <Button variant="ghost" size="icon" className="hidden md:flex">
               <Search className="w-5 h-5" />
             </Button>
 

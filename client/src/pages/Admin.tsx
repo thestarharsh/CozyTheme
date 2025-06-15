@@ -47,6 +47,16 @@ interface Order {
   totalAmount: string;
   paymentMethod: string;
   createdAt: string;
+  shippingAddress: {
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    address: string;
+    city: string;
+    state: string;
+    country: string;
+    pincode: string;
+  };
 }
 
 interface ProductFormData {
@@ -416,7 +426,7 @@ export default function Admin() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-neutral-800">Admin Dashboard</h1>
           <Badge variant="secondary">
-            Welcome, {user?.firstName || user?.email}
+            Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress}
           </Badge>
         </div>
 
@@ -756,6 +766,8 @@ export default function Admin() {
                     <TableRow>
                       <TableHead>Order #</TableHead>
                       <TableHead>Customer</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Address</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Payment</TableHead>
                       <TableHead>Status</TableHead>
@@ -767,7 +779,13 @@ export default function Admin() {
                     {orders.map((order: Order) => (
                       <TableRow key={order.id}>
                         <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                        <TableCell>{order.userId}</TableCell>
+                        <TableCell>
+                          {order.shippingAddress.fullName}
+                        </TableCell>
+                        <TableCell>{order.shippingAddress.phoneNumber}</TableCell>
+                        <TableCell>
+                          {`${order.shippingAddress.address}, ${order.shippingAddress.city}, ${order.shippingAddress.state}, ${order.shippingAddress.pincode}`}
+                        </TableCell>
                         <TableCell>₹{order.totalAmount}</TableCell>
                         <TableCell>
                           <Badge variant={order.paymentMethod === 'online' ? 'secondary' : 'outline'}>

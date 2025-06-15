@@ -133,11 +133,10 @@ export default function SnakeGame() {
         </div>
 
         {/* Game Board */}
-        <div 
-          className="grid gap-0.5 bg-green-800 p-2 rounded-lg mx-auto"
+        <div
+          className="grid gap-0.5 bg-green-800 p-2 rounded-lg mx-auto w-full max-w-[280px]"
           style={{ 
             gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
-            width: '280px',
             height: '280px'
           }}
         >

@@ -357,12 +357,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new ApiError(400, "Order must contain at least one item");
       }
 
-      // Validate order items
-      const validatedItems = items.map(item => insertOrderItemSchema.parse(item));
+      // Validate order items without orderId
+      const validatedItems = items.map(item => {
+        const { orderId, ...itemData } = item;
+        return insertOrderItemSchema.omit({ orderId: true }).parse(itemData);
+      });
+
+      // Convert totalAmount to string if it's a number
+      const orderDataWithStringAmount = {
+        ...orderData,
+        totalAmount: orderData.totalAmount.toString(),
+        // Use shipping address as billing address if not provided
+        billingAddress: orderData.billingAddress || orderData.shippingAddress
+      };
 
       // Validate order data
       const validatedOrderData = insertOrderSchema.parse({
-        ...orderData,
+        ...orderDataWithStringAmount,
         userId,
         status: 'pending',
         orderNumber: `ORD-${Date.now()}`,

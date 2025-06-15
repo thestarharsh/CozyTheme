@@ -12,7 +12,6 @@ import Cart from "@/pages/Cart";
 import Admin from "@/pages/Admin";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import CartSidebar from "@/components/CartSidebar";
 import { ProductForm } from './components/ProductForm';
 
 function Router() {
@@ -58,8 +57,6 @@ function Router() {
       </main>
 
       {!isAuthPage && <Footer />}
-
-      {!isAuthPage && <CartSidebar />}
     </div>
   );
 }
