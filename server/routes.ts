@@ -332,9 +332,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/cart', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/cart', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
       await storage.clearCart(userId);
       res.json({ message: "Cart cleared" });
     } catch (error) {
@@ -567,21 +571,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reviews routes
-  app.get("/api/products/:id/reviews", async (req, res) => {
+  app.get("/api/products/:id/reviews", async (req: Request, res: Response) => {
     try {
       const productId = parseInt(req.params.id);
       const reviews = await storage.getProductReviews(productId);
-      res.json(reviews);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error fetching reviews", error: error.message });
+      
+      // Get user details for each review
+      const reviewsWithUserDetails = await Promise.all(
+        reviews.map(async (review) => {
+          const user = await clerkClient.users.getUser(review.userId);
+          return {
+            ...review,
+            user: {
+              firstName: user.firstName,
+              lastName: user.lastName,
+              imageUrl: user.imageUrl,
+            }
+          };
+        })
+      );
+      
+      res.json(reviewsWithUserDetails);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Error fetching reviews", error: (error as Error).message });
     }
   });
 
-  app.post("/api/products/:id/reviews", isAuthenticated, async (req: any, res) => {
+  app.post("/api/products/:id/reviews", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
       const productId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
       const { rating, title, comment } = req.body;
+
+      // Check if user has purchased the product and it's delivered
+      const userOrders = await storage.getOrders(userId);
+      const hasPurchased = userOrders.some(order => 
+        order.status === 'delivered' && 
+        order.orderItems.some(item => item.productId === productId)
+      );
+
+      if (!hasPurchased) {
+        throw new ApiError(403, "You can only review products you have purchased and received");
+      }
       
       const review = await storage.createReview({
         productId,
@@ -591,16 +628,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         comment,
       });
       
+      // Invalidate the product query to refresh reviews
       res.json(review);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error creating review", error: error.message });
+    } catch (error) {
+      console.error("Error creating review:", error);
+      if (error instanceof ApiError) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Error creating review", error: (error as Error).message });
+      }
     }
   });
 
   // Admin Excel export/import routes
-  app.get('/api/admin/orders/export', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/orders/export', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
       await requireAdminAccess(userId);
 
       const orders = await storage.getOrders();
@@ -640,9 +688,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/orders/import', isAuthenticated, upload.single('file'), async (req: any, res) => {
+  app.post('/api/admin/orders/import', isAuthenticated, upload.single('file'), async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.auth.userId;
+      if (!userId) {
+        throw new ApiError(401, "User not authenticated");
+      }
+
       await requireAdminAccess(userId);
 
       if (!req.file) {

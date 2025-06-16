@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Star, ShoppingCart, Heart, Share2, ArrowLeft, Shield, Truck, RotateCcw } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useToast } from "@/hooks/use-toast";
+import PhoneDropSimulator from "@/components/PhoneDropSimulator";
+import ProductReviews from "@/components/ProductReviews";
+import { apiRequest } from "@/lib/queryClient";
+
+interface Review {
+  id: number;
+  userId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +35,23 @@ export default function ProductDetail() {
     retry: false,
   });
 
+  const { data: reviews = [] } = useQuery({
+    queryKey: [`/api/products/${id}/reviews`],
+    queryFn: async () => {
+      const response = await fetch(`/api/products/${id}/reviews`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch reviews");
+      }
+      return response.json();
+    },
+    enabled: !!id,
+  });
+
+  const reviewCount = reviews.length;
+  const averageRating = reviewCount > 0
+    ? (reviews.reduce((acc, review) => acc + review.rating, 0) / reviewCount).toFixed(1)
+    : "0";
+
   const { data: relatedProducts = [] } = useQuery({
     queryKey: ["/api/products", product?.brand],
     queryFn: async () => {
@@ -34,6 +63,32 @@ export default function ProductDetail() {
     },
     enabled: !!product,
     retry: false,
+  });
+
+  const queryClient = useQueryClient();
+
+  // Add review mutation
+  const addReviewMutation = useMutation({
+    mutationFn: async ({ rating, comment }: { rating: number; comment: string }) => {
+      const response = await fetch(`/api/products/${id}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ rating, comment }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to submit review');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/products/${id}`] });
+    },
   });
 
   const handleAddToCart = () => {
@@ -55,6 +110,19 @@ export default function ProductDetail() {
         description: "Product link has been copied to clipboard",
       });
     }
+  };
+
+  const handleAddReview = async (rating: number, comment: string) => {
+    await addReviewMutation.mutateAsync({ rating, comment });
+  };
+
+  // Get emoji based on rating
+  const getRatingEmoji = (rating: number) => {
+    if (rating >= 4.5) return "😍";
+    if (rating >= 4) return "😊";
+    if (rating >= 3) return "😐";
+    if (rating >= 2) return "😕";
+    return "😢";
   };
 
   if (isLoading) {
@@ -167,7 +235,7 @@ export default function ProductDetail() {
                     <Star
                       key={i}
                       className={`w-5 h-5 ${
-                        i < Math.floor(parseFloat(product.rating || "0"))
+                        i < Math.floor(parseFloat(averageRating))
                           ? "fill-current"
                           : ""
                       }`}
@@ -175,7 +243,7 @@ export default function ProductDetail() {
                   ))}
                 </div>
                 <span className="text-sm text-neutral-600">
-                  {product.rating} ({product.reviewCount} reviews)
+                  {averageRating} {getRatingEmoji(parseFloat(averageRating))} ({reviewCount} reviews)
                 </span>
               </div>
 
@@ -271,29 +339,34 @@ export default function ProductDetail() {
             </div>
 
             {/* Features */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t">
-              <div className="text-center">
-                <Shield className="w-6 h-6 text-primary mx-auto mb-2" />
-                <div className="text-xs text-neutral-600">Quality Guarantee</div>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Shield className="w-5 h-5 text-primary" />
+                <span className="font-medium">Premium Protection</span>
               </div>
-              <div className="text-center">
-                <Truck className="w-6 h-6 text-primary mx-auto mb-2" />
-                <div className="text-xs text-neutral-600">Free Shipping</div>
+              <div className="flex items-center space-x-2">
+                <Truck className="w-5 h-5 text-primary" />
+                <span className="font-medium">Free Shipping over ₹999</span>
               </div>
-              <div className="text-center">
-                <RotateCcw className="w-6 h-6 text-primary mx-auto mb-2" />
-                <div className="text-xs text-neutral-600">30-Day Returns</div>
+              <div className="flex items-center space-x-2">
+                <RotateCcw className="w-5 h-5 text-primary" />
+                <span className="font-medium">7-Day Easy Returns</span>
               </div>
+            </div>
+
+            {/* Phone Drop Simulator */}
+            <div className="mt-8">
+              <PhoneDropSimulator />
             </div>
           </div>
         </div>
 
         {/* Product Description and Reviews */}
-        <div className="mt-16">
+        <div className="mt-12">
           <Tabs defaultValue="description" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="description">Description</TabsTrigger>
-              <TabsTrigger value="reviews">Reviews ({product.reviewCount})</TabsTrigger>
+              <TabsTrigger value="reviews">Reviews ({reviewCount})</TabsTrigger>
             </TabsList>
             <TabsContent value="description" className="mt-6">
               <Card>
@@ -305,14 +378,7 @@ export default function ProductDetail() {
               </Card>
             </TabsContent>
             <TabsContent value="reviews" className="mt-6">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="text-center py-8 text-neutral-600">
-                    <Star className="w-12 h-12 mx-auto mb-4 text-neutral-300" />
-                    <p>Reviews feature coming soon!</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <ProductReviews productId={Number(id)} />
             </TabsContent>
           </Tabs>
         </div>

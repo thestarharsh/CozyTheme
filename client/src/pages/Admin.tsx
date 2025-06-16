@@ -47,6 +47,18 @@ interface Order {
   totalAmount: string;
   paymentMethod: string;
   createdAt: string;
+  orderItems: {
+    id: number;
+    productId: number;
+    quantity: number;
+    price: string;
+    product: {
+      id: number;
+      name: string;
+      brand: string;
+      model: string;
+    };
+  }[];
   shippingAddress: {
     fullName: string;
     email: string;
@@ -767,6 +779,11 @@ export default function Admin() {
                       <TableHead>Order #</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Contact</TableHead>
+                      <TableHead>Product Name</TableHead>
+                      <TableHead>Brand</TableHead>
+                      <TableHead>Model</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Price/Unit</TableHead>
                       <TableHead>Address</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Payment</TableHead>
@@ -777,47 +794,75 @@ export default function Admin() {
                   </TableHeader>
                   <TableBody>
                     {orders.map((order: Order) => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                        <TableCell>
-                          {order.shippingAddress.fullName}
-                        </TableCell>
-                        <TableCell>{order.shippingAddress.phoneNumber}</TableCell>
-                        <TableCell>
-                          {`${order.shippingAddress.address}, ${order.shippingAddress.city}, ${order.shippingAddress.state}, ${order.shippingAddress.pincode}`}
-                        </TableCell>
-                        <TableCell>₹{order.totalAmount}</TableCell>
-                        <TableCell>
-                          <Badge variant={order.paymentMethod === 'online' ? 'secondary' : 'outline'}>
-                            {order.paymentMethod === 'online' ? 'Online' : 'COD'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={order.status}
-                            onValueChange={(status) => updateOrderStatusMutation.mutate({ id: order.id, status })}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="confirmed">Confirmed</SelectItem>
-                              <SelectItem value="shipped">Shipped</SelectItem>
-                              <SelectItem value="delivered">Delivered</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="icon">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      order.orderItems?.map((item, index) => (
+                        <TableRow key={`${order.id}-${item.id}`}>
+                          {index === 0 ? (
+                            <>
+                              <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                              <TableCell>{order.shippingAddress.fullName}</TableCell>
+                              <TableCell>{order.shippingAddress.phoneNumber}</TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
+                            </>
+                          )}
+                          <TableCell>{item.product.name}</TableCell>
+                          <TableCell>{item.product.brand}</TableCell>
+                          <TableCell>{item.product.model}</TableCell>
+                          <TableCell>{item.quantity}</TableCell>
+                          <TableCell>₹{item.price}</TableCell>
+                          {index === 0 ? (
+                            <>
+                              <TableCell>
+                                {`${order.shippingAddress.address}, ${order.shippingAddress.city}, ${order.shippingAddress.state}, ${order.shippingAddress.pincode}`}
+                              </TableCell>
+                              <TableCell>₹{order.totalAmount}</TableCell>
+                              <TableCell>
+                                <Badge variant={order.paymentMethod === 'online' ? 'secondary' : 'outline'}>
+                                  {order.paymentMethod === 'online' ? 'Online' : 'COD'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Select
+                                  value={order.status}
+                                  onValueChange={(status) => updateOrderStatusMutation.mutate({ id: order.id, status })}
+                                >
+                                  <SelectTrigger className="w-32">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                                    <SelectItem value="shipped">Shipped</SelectItem>
+                                    <SelectItem value="delivered">Delivered</SelectItem>
+                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                {new Date(order.createdAt).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell>
+                                <Button variant="outline" size="icon">
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
+                            </>
+                          )}
+                        </TableRow>
+                      ))
                     ))}
                   </TableBody>
                 </Table>

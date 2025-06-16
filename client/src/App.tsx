@@ -10,6 +10,7 @@ import Products from "@/pages/Products";
 import ProductDetail from "@/pages/ProductDetail";
 import Cart from "@/pages/Cart";
 import Admin from "@/pages/Admin";
+import MyOrders from "@/pages/MyOrders";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ProductForm } from './components/ProductForm';
@@ -38,6 +39,7 @@ function Router() {
           <Route path="/products" component={Products} />
           <Route path="/products/:id" component={ProductDetail} />
           <Route path="/cart" component={Cart} />
+          <Route path="/my-orders" component={MyOrders} />
           <Route path="/sign-in">
             {/* Centered SignIn */}
             <div className="w-full max-w-md p-6 bg-white rounded-md shadow-md">

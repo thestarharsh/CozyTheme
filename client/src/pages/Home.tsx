@@ -4,9 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Star, ShoppingCart, Shield, Truck, HeartHandshake, Zap } from "lucide-react";
+import { Star, ShoppingCart, Shield, Truck, HeartHandshake, Zap, Package } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/hooks/useCart";
+import { useUser } from "@clerk/clerk-react";
 import SnakeGame from "@/components/SnakeGame";
 
 const brands = [
@@ -83,6 +84,7 @@ const features = [
 export default function Home() {
   const [email, setEmail] = useState("");
   const { addToCart } = useCart();
+  const { isSignedIn } = useUser();
 
   const { data: featuredProducts = [], isLoading: loadingProducts } = useQuery({
     queryKey: ["/api/products/featured"],

@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useUser } from "@clerk/clerk-react";
 
 export function useCart() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isSignedIn } = useUser();
 
   const { data: cartItems = [], isLoading } = useQuery({
     queryKey: ["/api/cart"],
@@ -14,6 +16,9 @@ export function useCart() {
 
   const addToCartMutation = useMutation({
     mutationFn: async ({ productId, quantity = 1 }: { productId: number; quantity?: number }) => {
+      if (!isSignedIn) {
+        throw new Error("UNAUTHORIZED");
+      }
       await apiRequest("POST", "/api/cart", { productId, quantity });
     },
     onSuccess: () => {
@@ -24,14 +29,14 @@ export function useCart() {
       });
     },
     onError: (error) => {
-      if (isUnauthorizedError(error)) {
+      if (error.message === "UNAUTHORIZED" || isUnauthorizedError(error)) {
         toast({
           title: "Please sign in",
           description: "You need to sign in to add items to cart",
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/sign-in";
         }, 1000);
         return;
       }

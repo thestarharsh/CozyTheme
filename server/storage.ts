@@ -65,7 +65,7 @@ export interface IStorage {
   
   // Order operations
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
-  getOrders(userId?: string): Promise<Order[]>;
+  getOrders(userId?: string): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] })[]>;
   getOrder(id: number): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] }) | undefined>;
   updateOrderStatus(id: number, status: string): Promise<Order>;
   
@@ -275,14 +275,46 @@ export class DatabaseStorage implements IStorage {
     return newOrder;
   }
 
-  async getOrders(userId?: string): Promise<Order[]> {
-    let query = db.select().from(orders);
-    
-    if (userId) {
-      query = query.where(eq(orders.userId, userId));
+  async getOrders(userId?: string): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] })[]> {
+    try {
+      let query = db.select().from(orders);
+      
+      if (userId) {
+        query = query.where(eq(orders.userId, userId));
+      }
+      
+      const orderList = await query.orderBy(desc(orders.createdAt));
+      
+      // Fetch order items with products for each order
+      const ordersWithItems = await Promise.all(
+        orderList.map(async (order) => {
+          const items = await db
+            .select({
+              order_items: orderItems,
+              products: products
+            })
+            .from(orderItems)
+            .leftJoin(products, eq(orderItems.productId, products.id))
+            .where(eq(orderItems.orderId, order.id))
+            .then(rows =>
+              rows.map(row => ({
+                ...row.order_items,
+                product: row.products
+              }))
+            );
+
+          return {
+            ...order,
+            orderItems: items
+          };
+        })
+      );
+
+      return ordersWithItems;
+    } catch (error) {
+      console.error("Error in getOrders:", error);
+      throw error;
     }
-    
-    return await query.orderBy(desc(orders.createdAt));
   }
 
   async getOrder(id: number): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] }) | undefined> {

@@ -29,7 +29,7 @@ export default function Header() {
     { href: "/", label: "Home", active: location === "/" },
     { href: "/products", label: "Products", active: location.startsWith("/products") },
     { href: "/categories", label: "Categories", active: location === "/categories" },
-    { href: "/about", label: "About", active: location === "/about" },
+    { href: "/my-orders", label: "My Orders", active: location === "/my-orders" },
     { href: "/contact", label: "Contact", active: location === "/contact" },
   ];
 
