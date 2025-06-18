@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,29 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import ThankYouCard from "@/components/ThankYouCard";
+import html2canvas from "html2canvas";
+
+// Declare Razorpay types
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
+interface CartItem {
+  id: number;
+  productId: number;
+  quantity: number;
+  product: {
+    id: number;
+    name: string;
+    brand: string;
+    model: string;
+    price: string;
+    imageUrl: string;
+  };
+}
 
 export default function Cart() {
   const { cartItems, cartTotal, updateCart, removeFromCart, isUpdating } = useCart();
@@ -34,6 +57,31 @@ export default function Cart() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
+  const [isRazorpayLoaded, setIsRazorpayLoaded] = useState(false);
+  const [showThankYou, setShowThankYou] = useState(false);
+
+  // Load Razorpay script
+  useEffect(() => {
+    const loadRazorpay = () => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => setIsRazorpayLoaded(true);
+      script.onerror = () => {
+        toast({
+          title: "Payment Error",
+          description: "Failed to load payment gateway",
+          variant: "destructive",
+        });
+      };
+      document.body.appendChild(script);
+    };
+
+    if (!window.Razorpay) {
+      loadRazorpay();
+    } else {
+      setIsRazorpayLoaded(true);
+    }
+  }, [toast]);
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: any) => {
@@ -45,13 +93,52 @@ export default function Cart() {
         title: "Order placed successfully!",
         description: `Your order #${order.orderNumber} has been confirmed.`,
       });
-      // Redirect to order confirmation or home
-      window.location.href = "/";
+      setShowThankYou(true);
     },
     onError: (error) => {
       toast({
         title: "Order failed",
         description: "There was an error placing your order. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createRazorpayOrderMutation = useMutation({
+    mutationFn: async (amount: number) => {
+      const response = await apiRequest("POST", "/api/create-order", { amount });
+      return response.json();
+    },
+    onError: (error) => {
+      toast({
+        title: "Payment Error",
+        description: "Failed to create payment order",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async (paymentData: any) => {
+      const response = await apiRequest("POST", "/api/verify-payment", paymentData);
+      return response.json();
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        // Payment verified, now place the order
+        handlePlaceOrderAfterPayment();
+      } else {
+        toast({
+          title: "Payment Failed",
+          description: "Payment verification failed",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Payment Error",
+        description: "Failed to verify payment",
         variant: "destructive",
       });
     },
@@ -96,6 +183,85 @@ export default function Cart() {
     validateCouponMutation.mutate({ code: couponCode, amount: cartTotal });
   };
 
+  const handlePlaceOrderAfterPayment = () => {
+    const orderItems = (cartItems as CartItem[]).map((item: CartItem) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      price: item.product.price,
+    }));
+
+    const finalAmount = cartTotal - discount;
+
+    createOrderMutation.mutate({
+      items: orderItems,
+      shippingAddress: shippingInfo,
+      paymentMethod: "online",
+      totalAmount: finalAmount,
+    });
+  };
+
+  const handleRazorpayPayment = async (amount: number) => {
+    try {
+      // Create Razorpay order
+      const razorpayOrder = await createRazorpayOrderMutation.mutateAsync(amount);
+      
+      if (!isRazorpayLoaded) {
+        toast({
+          title: "Payment Error",
+          description: "Payment gateway is still loading. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: amount * 100, // Convert to paise
+        currency: "INR",
+        name: "CozyGripz",
+        description: "Mobile Cover Purchase",
+        order_id: razorpayOrder.id,
+        handler: function (response: any) {
+          // Verify payment
+          verifyPaymentMutation.mutate({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
+        },
+        prefill: {
+          name: shippingInfo.fullName,
+          email: shippingInfo.email,
+          contact: shippingInfo.phoneNumber,
+        },
+        notes: {
+          address: shippingInfo.address,
+        },
+        theme: {
+          color: "#3B82F6",
+        },
+        modal: {
+          ondismiss: function() {
+            toast({
+              title: "Payment Cancelled",
+              description: "You cancelled the payment",
+              variant: "destructive",
+            });
+          }
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    } catch (error) {
+      toast({
+        title: "Payment Error",
+        description: "Failed to initiate payment",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handlePlaceOrder = () => {
     if (!isAuthenticated) {
       toast({
@@ -107,7 +273,7 @@ export default function Cart() {
       return;
     }
 
-    if (cartItems.length === 0) {
+    if ((cartItems as CartItem[]).length === 0) {
       toast({
         title: "Cart is empty",
         description: "Add some items to your cart first",
@@ -129,20 +295,38 @@ export default function Cart() {
       return;
     }
 
-    const orderItems = cartItems.map((item: any) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      price: item.product.price,
-    }));
-
     const finalAmount = cartTotal - discount;
+    const shippingCost = cartTotal >= 999 ? 0 : 99;
+    const totalAmount = finalAmount + shippingCost;
 
-    createOrderMutation.mutate({
-      items: orderItems,
-      shippingAddress: shippingInfo,
-      paymentMethod,
-      totalAmount: finalAmount,
-    });
+    if (paymentMethod === "online") {
+      // Handle online payment with Razorpay
+      handleRazorpayPayment(totalAmount);
+    } else {
+      // Handle COD payment
+      const orderItems = (cartItems as CartItem[]).map((item: CartItem) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.product.price,
+      }));
+
+      createOrderMutation.mutate({
+        items: orderItems,
+        shippingAddress: shippingInfo,
+        paymentMethod,
+        totalAmount: finalAmount,
+      });
+    }
+  };
+
+  const handleDownloadCard = async () => {
+    const card = document.getElementById("thank-you-card");
+    if (!card) return;
+    const canvas = await html2canvas(card, { backgroundColor: null, useCORS: true });
+    const link = document.createElement("a");
+    link.download = `cozygripz-thank-you.png`;
+    link.href = canvas.toDataURL();
+    link.click();
   };
 
   if (!isAuthenticated) {
@@ -162,7 +346,7 @@ export default function Cart() {
     );
   }
 
-  if (cartItems.length === 0) {
+  if ((cartItems as CartItem[]).length === 0) {
     return (
       <div className="min-h-screen bg-neutral-50 py-8">
         <div className="container mx-auto px-4 text-center">
@@ -181,6 +365,16 @@ export default function Cart() {
 
   const finalTotal = cartTotal - discount;
 
+  if (showThankYou) {
+    return (
+      <ThankYouCard
+        userName={shippingInfo.fullName || user?.firstName || "Customer"}
+        onDownload={handleDownloadCard}
+        onClose={() => { setShowThankYou(false); window.location.href = "/"; }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-neutral-50 py-8">
       <div className="container mx-auto px-4">
@@ -191,10 +385,10 @@ export default function Cart() {
           <div className="lg:col-span-2 space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Cart Items ({cartItems.length})</CardTitle>
+                <CardTitle>Cart Items ({(cartItems as CartItem[]).length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {cartItems.map((item: any) => (
+                {(cartItems as CartItem[]).map((item: CartItem) => (
                   <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg">
                     <img
                       src={item.product.imageUrl}
@@ -398,9 +592,11 @@ export default function Cart() {
                   size="lg" 
                   className="w-full"
                   onClick={handlePlaceOrder}
-                  disabled={createOrderMutation.isPending}
+                  disabled={createOrderMutation.isPending || createRazorpayOrderMutation.isPending || verifyPaymentMutation.isPending}
                 >
-                  {createOrderMutation.isPending ? "Placing Order..." : "Place Order"}
+                  {createOrderMutation.isPending || createRazorpayOrderMutation.isPending || verifyPaymentMutation.isPending 
+                    ? "Processing..." 
+                    : "Place Order"}
                 </Button>
                 
                 <p className="text-xs text-neutral-500 text-center">
