@@ -4,9 +4,10 @@ interface ThankYouCardProps {
   userName: string;
   onDownload: () => void;
   onClose: () => void;
+  isForDownload?: boolean;
 }
 
-export const ThankYouCard: React.FC<ThankYouCardProps> = ({ userName, onDownload, onClose }) => {
+export const ThankYouCard: React.FC<ThankYouCardProps> = ({ userName, onDownload, onClose, isForDownload }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
       <div
@@ -37,20 +38,22 @@ export const ThankYouCard: React.FC<ThankYouCardProps> = ({ userName, onDownload
           <span className="text-base sm:text-lg font-bold">Ankush</span><br />
           Founder, CozyGripz <span className="text-lg sm:text-xl">❤️</span>
         </p>
-        <div className="flex gap-2 sm:gap-3 mt-2 sm:mt-4 flex-wrap justify-center">
-          <button
-            onClick={onDownload}
-            className="bg-primary text-white px-3 sm:px-4 py-2 rounded-lg font-semibold shadow hover:bg-primary/90 transition text-sm sm:text-base"
-          >
-            Download & Share
-          </button>
-          <button
-            onClick={onClose}
-            className="bg-neutral-200 text-neutral-700 px-3 sm:px-4 py-2 rounded-lg font-semibold hover:bg-neutral-300 transition text-sm sm:text-base"
-          >
-            Close
-          </button>
-        </div>
+        {!isForDownload && (
+          <div className="flex gap-2 sm:gap-3 mt-2 sm:mt-4 flex-wrap justify-center">
+            <button
+              onClick={onDownload}
+              className="bg-primary text-white px-3 sm:px-4 py-2 rounded-lg font-semibold shadow hover:bg-primary/90 transition text-sm sm:text-base"
+            >
+              Download & Share
+            </button>
+            <button
+              onClick={onClose}
+              className="bg-neutral-200 text-neutral-700 px-3 sm:px-4 py-2 rounded-lg font-semibold hover:bg-neutral-300 transition text-sm sm:text-base"
+            >
+              Close
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

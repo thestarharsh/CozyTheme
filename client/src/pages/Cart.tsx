@@ -16,6 +16,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import ThankYouCard from "@/components/ThankYouCard";
 import html2canvas from "html2canvas";
+import React, { useRef } from "react";
 
 // Declare Razorpay types
 declare global {
@@ -59,6 +60,7 @@ export default function Cart() {
   const [discount, setDiscount] = useState(0);
   const [isRazorpayLoaded, setIsRazorpayLoaded] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Load Razorpay script
   useEffect(() => {
@@ -342,13 +344,20 @@ export default function Cart() {
   };
 
   const handleDownloadCard = async () => {
+    setIsDownloading(true);
+    // Wait for the ThankYouCard to re-render with isForDownload=true
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const card = document.getElementById("thank-you-card");
-    if (!card) return;
+    if (!card) {
+      setIsDownloading(false);
+      return;
+    }
     const canvas = await html2canvas(card, { backgroundColor: null, useCORS: true });
     const link = document.createElement("a");
     link.download = `cozygripz-thank-you.png`;
     link.href = canvas.toDataURL();
     link.click();
+    setIsDownloading(false);
   };
 
   if (!isAuthenticated) {
@@ -393,6 +402,7 @@ export default function Cart() {
         userName={shippingInfo.fullName || user?.firstName || "Customer"}
         onDownload={handleDownloadCard}
         onClose={() => { setShowThankYou(false); window.location.href = "/"; }}
+        isForDownload={isDownloading}
       />
     );
   }
