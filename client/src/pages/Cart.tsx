@@ -54,7 +54,7 @@ export default function Cart() {
     country: "India",
   });
   
-  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [paymentMethod, setPaymentMethod] = useState("online");
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [isRazorpayLoaded, setIsRazorpayLoaded] = useState(false);
@@ -295,8 +295,30 @@ export default function Cart() {
       return;
     }
 
+    // Phone number validation: 10 digits, starts with 6,7,8,9
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(shippingInfo.phoneNumber)) {
+      toast({
+        title: "Invalid phone number",
+        description: "Phone number must be 10 digits",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Pincode validation: exactly 6 digits
+    const pincodeRegex = /^\d{6}$/;
+    if (!pincodeRegex.test(shippingInfo.pincode)) {
+      toast({
+        title: "Invalid pincode",
+        description: "Pincode must be exactly 6 digits.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const finalAmount = cartTotal - discount;
-    const shippingCost = cartTotal >= 999 ? 0 : 99;
+    const shippingCost = cartTotal >= 99 ? 0 : 99;
     const totalAmount = finalAmount + shippingCost;
 
     if (paymentMethod === "online") {
@@ -314,7 +336,7 @@ export default function Cart() {
         items: orderItems,
         shippingAddress: shippingInfo,
         paymentMethod,
-        totalAmount: finalAmount,
+        totalAmount: totalAmount,
       });
     }
   };
@@ -377,7 +399,7 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-neutral-50 py-8">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto sm:px-4 px-2">
         <h1 className="text-3xl font-bold text-neutral-800 mb-8">Shopping Cart</h1>
         
         <div className="grid lg:grid-cols-3 gap-8">
@@ -389,7 +411,7 @@ export default function Cart() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {(cartItems as CartItem[]).map((item: CartItem) => (
-                  <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg">
+                  <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg flex-wrap sm:flex-nowrap">
                     <img
                       src={item.product.imageUrl}
                       alt={item.product.name}
@@ -402,33 +424,37 @@ export default function Cart() {
                       </p>
                       <p className="text-lg font-bold text-primary">₹{item.product.price}</p>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 sm:space-x-2 w-full sm:w-auto mt-2 sm:mt-0">
+                      <div className="flex items-center space-x-1 sm:space-x-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7 sm:w-9 sm:h-9 p-0"
+                          onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                          disabled={item.quantity <= 1 || isUpdating}
+                        >
+                          <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </Button>
+                        <span className="w-8 sm:w-12 text-center text-base sm:text-lg">{item.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7 sm:w-9 sm:h-9 p-0"
+                          onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                          disabled={isUpdating}
+                        >
+                          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </Button>
+                      </div>
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                        disabled={item.quantity <= 1 || isUpdating}
+                        className="text-red-500 hover:text-red-700 w-7 h-7 sm:w-9 sm:h-9 p-0 ml-2"
+                        onClick={() => removeFromCart(item.id)}
                       >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                      <span className="w-12 text-center">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                        disabled={isUpdating}
-                      >
-                        <Plus className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
                   </div>
                 ))}
               </CardContent>
@@ -493,12 +519,52 @@ export default function Cart() {
                   </div>
                   <div>
                     <Label htmlFor="state">State *</Label>
-                    <Input
-                      id="state"
+                    <Select
                       value={shippingInfo.state}
-                      onChange={(e) => setShippingInfo(prev => ({ ...prev, state: e.target.value }))}
-                      placeholder="Enter state"
-                    />
+                      onValueChange={(value) => setShippingInfo(prev => ({ ...prev, state: value }))}
+                    >
+                      <SelectTrigger id="state">
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Andhra Pradesh">Andhra Pradesh</SelectItem>
+                        <SelectItem value="Arunachal Pradesh">Arunachal Pradesh</SelectItem>
+                        <SelectItem value="Assam">Assam</SelectItem>
+                        <SelectItem value="Bihar">Bihar</SelectItem>
+                        <SelectItem value="Chhattisgarh">Chhattisgarh</SelectItem>
+                        <SelectItem value="Goa">Goa</SelectItem>
+                        <SelectItem value="Gujarat">Gujarat</SelectItem>
+                        <SelectItem value="Haryana">Haryana</SelectItem>
+                        <SelectItem value="Himachal Pradesh">Himachal Pradesh</SelectItem>
+                        <SelectItem value="Jharkhand">Jharkhand</SelectItem>
+                        <SelectItem value="Karnataka">Karnataka</SelectItem>
+                        <SelectItem value="Kerala">Kerala</SelectItem>
+                        <SelectItem value="Madhya Pradesh">Madhya Pradesh</SelectItem>
+                        <SelectItem value="Maharashtra">Maharashtra</SelectItem>
+                        <SelectItem value="Manipur">Manipur</SelectItem>
+                        <SelectItem value="Meghalaya">Meghalaya</SelectItem>
+                        <SelectItem value="Mizoram">Mizoram</SelectItem>
+                        <SelectItem value="Nagaland">Nagaland</SelectItem>
+                        <SelectItem value="Odisha">Odisha</SelectItem>
+                        <SelectItem value="Punjab">Punjab</SelectItem>
+                        <SelectItem value="Rajasthan">Rajasthan</SelectItem>
+                        <SelectItem value="Sikkim">Sikkim</SelectItem>
+                        <SelectItem value="Tamil Nadu">Tamil Nadu</SelectItem>
+                        <SelectItem value="Telangana">Telangana</SelectItem>
+                        <SelectItem value="Tripura">Tripura</SelectItem>
+                        <SelectItem value="Uttar Pradesh">Uttar Pradesh</SelectItem>
+                        <SelectItem value="Uttarakhand">Uttarakhand</SelectItem>
+                        <SelectItem value="West Bengal">West Bengal</SelectItem>
+                        <SelectItem value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</SelectItem>
+                        <SelectItem value="Chandigarh">Chandigarh</SelectItem>
+                        <SelectItem value="Dadra and Nagar Haveli and Daman and Diu">Dadra and Nagar Haveli and Daman and Diu</SelectItem>
+                        <SelectItem value="Delhi">Delhi</SelectItem>
+                        <SelectItem value="Jammu and Kashmir">Jammu and Kashmir</SelectItem>
+                        <SelectItem value="Ladakh">Ladakh</SelectItem>
+                        <SelectItem value="Lakshadweep">Lakshadweep</SelectItem>
+                        <SelectItem value="Puducherry">Puducherry</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </CardContent>
@@ -537,13 +603,6 @@ export default function Cart() {
               <CardContent>
                 <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="cod" id="cod" />
-                    <Label htmlFor="cod" className="flex items-center cursor-pointer">
-                      <Truck className="w-4 h-4 mr-2" />
-                      Cash on Delivery
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
                     <RadioGroupItem value="online" id="online" />
                     <Label htmlFor="online" className="flex items-center cursor-pointer">
                       <CreditCard className="w-4 h-4 mr-2" />
@@ -575,7 +634,7 @@ export default function Cart() {
                 <div className="flex justify-between">
                   <span>Shipping</span>
                   <span className="text-green-600">
-                    {cartTotal >= 999 ? "Free" : "₹99"}
+                    {cartTotal >= 99 ? "Free" : "₹99"}
                   </span>
                 </div>
                 
@@ -584,7 +643,7 @@ export default function Cart() {
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
                   <span className="text-primary">
-                    ₹{(finalTotal + (cartTotal >= 999 ? 0 : 99)).toFixed(2)}
+                    ₹{(finalTotal + (cartTotal >= 99 ? 0 : 99)).toFixed(2)}
                   </span>
                 </div>
                 

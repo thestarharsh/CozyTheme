@@ -60,7 +60,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           <img
             src={product.imageUrl}
             alt={product.name}
-            className={`w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105 ${
+            className={`w-full h-64 object-contain bg-white p-4 transition-transform duration-300 group-hover:scale-105 ${
               imageLoaded ? 'block' : 'hidden'
             }`}
             onLoad={() => setImageLoaded(true)}

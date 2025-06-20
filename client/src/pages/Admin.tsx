@@ -85,6 +85,13 @@ interface ProductFormData {
   featured: boolean;
 }
 
+const TOP_BRANDS = [
+  "Apple", "Samsung", "OnePlus", "Xiaomi", "Oppo", "Vivo", "Realme", "Motorola", "Nokia", "Google"
+];
+const MATERIALS = [
+  "Leather", "Silicone", "Hard Plastic", "Metal", "TPU", "Rubber", "Fabric", "Wood", "Glass", "Carbon Fiber"
+];
+
 export default function Admin() {
   const { user, isSignedIn } = useUser();
   const { toast } = useToast();
@@ -107,6 +114,8 @@ export default function Admin() {
     stockQuantity: 0,
     featured: false,
   });
+  const [customBrand, setCustomBrand] = useState("");
+  const [customMaterial, setCustomMaterial] = useState("");
 
   // Queries
   const { data: products = [] as Product[] } = useQuery<Product[]>({
@@ -380,37 +389,38 @@ export default function Admin() {
 
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const formData = new FormData();
-    
-    // Append all form fields with proper type conversion
-    Object.entries(productForm).forEach(([key, value]) => {
-      if (key !== 'image' && value !== null) {
-        if (key === 'stockQuantity') {
-          formData.append(key, value.toString());
-        } else if (key === 'featured') {
-          formData.append(key, value.toString());
-        } else if (key === 'price' || key === 'originalPrice') {
-          formData.append(key, value.toString());
-        } else {
-          formData.append(key, value.toString());
-        }
-      }
-    });
 
-    // Append image if exists
-    if (productForm.image) {
-      formData.append('image', productForm.image);
-    } else if (!selectedProduct) {
-      // If it's a new product and no image is selected
-      toast({
-        title: "Error",
-        description: "Please select an image for the product",
-        variant: "destructive",
-      });
+    // Validation
+    if (!productForm.name.trim() || !productForm.description.trim() || !productForm.brand.trim() || !productForm.model.trim() || !productForm.material.trim()) {
+      toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+      return;
+    }
+    if (Number(productForm.price) <= 0) {
+      toast({ title: "Error", description: "Price must be a positive number.", variant: "destructive" });
+      return;
+    }
+    if (productForm.originalPrice && Number(productForm.originalPrice) < 0) {
+      toast({ title: "Error", description: "Original price cannot be negative.", variant: "destructive" });
+      return;
+    }
+    if (!productForm.stockQuantity || Number(productForm.stockQuantity) <= 0 || !Number.isInteger(Number(productForm.stockQuantity))) {
+      toast({ title: "Error", description: "Stock quantity must be a positive integer.", variant: "destructive" });
+      return;
+    }
+    if (!productForm.image && !selectedProduct) {
+      toast({ title: "Error", description: "Please select an image for the product", variant: "destructive" });
       return;
     }
 
+    const formData = new FormData();
+    Object.entries(productForm).forEach(([key, value]) => {
+      if (key !== 'image' && value !== null) {
+        formData.append(key, value.toString());
+      }
+    });
+    if (productForm.image) {
+      formData.append('image', productForm.image);
+    }
     try {
       if (selectedProduct) {
         await updateProductMutation.mutateAsync({ id: selectedProduct.id, formData });
@@ -531,12 +541,39 @@ export default function Admin() {
                           </div>
                           <div>
                             <Label htmlFor="brand">Brand</Label>
-                            <Input
-                              id="brand"
-                              value={productForm.brand}
-                              onChange={(e) => setProductForm(prev => ({ ...prev, brand: e.target.value }))}
-                              required
-                            />
+                            <Select
+                              value={TOP_BRANDS.includes(productForm.brand) ? productForm.brand : "Other"}
+                              onValueChange={value => {
+                                if (value === "Other") {
+                                  setProductForm(prev => ({ ...prev, brand: customBrand }));
+                                } else {
+                                  setProductForm(prev => ({ ...prev, brand: value }));
+                                }
+                              }}
+                            >
+                              <SelectTrigger id="brand">
+                                <SelectValue placeholder="Select brand" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TOP_BRANDS.map(brand => (
+                                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                                ))}
+                                <SelectItem value="Other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {(!TOP_BRANDS.includes(productForm.brand)) && (
+                              <Input
+                                id="customBrand"
+                                value={productForm.brand}
+                                onChange={e => {
+                                  setCustomBrand(e.target.value);
+                                  setProductForm(prev => ({ ...prev, brand: e.target.value }));
+                                }}
+                                placeholder="Enter custom brand"
+                                className="mt-2"
+                                required
+                              />
+                            )}
                           </div>
                         </div>
 
@@ -552,12 +589,39 @@ export default function Admin() {
                           </div>
                           <div>
                             <Label htmlFor="material">Material</Label>
-                            <Input
-                              id="material"
-                              value={productForm.material}
-                              onChange={(e) => setProductForm(prev => ({ ...prev, material: e.target.value }))}
-                              required
-                            />
+                            <Select
+                              value={MATERIALS.includes(productForm.material) ? productForm.material : "Other"}
+                              onValueChange={value => {
+                                if (value === "Other") {
+                                  setProductForm(prev => ({ ...prev, material: customMaterial }));
+                                } else {
+                                  setProductForm(prev => ({ ...prev, material: value }));
+                                }
+                              }}
+                            >
+                              <SelectTrigger id="material">
+                                <SelectValue placeholder="Select material" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {MATERIALS.map(material => (
+                                  <SelectItem key={material} value={material}>{material}</SelectItem>
+                                ))}
+                                <SelectItem value="Other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {(!MATERIALS.includes(productForm.material)) && (
+                              <Input
+                                id="customMaterial"
+                                value={productForm.material}
+                                onChange={e => {
+                                  setCustomMaterial(e.target.value);
+                                  setProductForm(prev => ({ ...prev, material: e.target.value }));
+                                }}
+                                placeholder="Enter custom material"
+                                className="mt-2"
+                                required
+                              />
+                            )}
                           </div>
                         </div>
 

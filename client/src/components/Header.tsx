@@ -158,21 +158,9 @@ export default function Header() {
                         <div className="text-sm text-neutral-600">
                           Welcome, {user?.firstName || user?.primaryEmailAddress?.emailAddress}!
                         </div>
-                        {authUser?.role === "admin" && (
-                          <Link href="/admin">
-                            <Button variant="outline" className="w-full justify-start">
-                              Admin Dashboard
-                            </Button>
-                          </Link>
-                        )}
-                        <UserButton afterSignOutUrl="/" />
                       </>
                     ) : (
-                      <SignInButton mode="modal">
-                        <Button className="w-full">
-                          Sign In
-                        </Button>
-                      </SignInButton>
+                      <></>
                     )}
                   </div>
                 </div>

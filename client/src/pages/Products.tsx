@@ -11,9 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Filter } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/hooks/useCart";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
-const brands = ["iPhone", "Samsung", "OnePlus", "Xiaomi", "Oppo", "Vivo"];
-const materials = ["Silicone", "Leather", "Hard Plastic", "Metal", "TPU"];
+const brands = [
+  "Apple", "Samsung", "OnePlus", "Xiaomi", "Oppo", "Vivo", "Realme", "Motorola", "Nokia", "Google"
+];
+const materials = [
+  "Leather", "Silicone", "Hard Plastic", "Metal", "TPU", "Rubber", "Fabric", "Wood", "Glass", "Carbon Fiber"
+];
 const priceRanges = [
   { label: "Under ₹500", min: 0, max: 500 },
   { label: "₹500 - ₹1000", min: 500, max: 1000 },
@@ -32,6 +37,8 @@ export default function Products() {
     priceRange: "",
     sortBy: "popularity",
   });
+
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Parse URL parameters on mount
   useEffect(() => {
@@ -102,9 +109,16 @@ export default function Products() {
   return (
     <div className="min-h-screen bg-neutral-50 py-8">
       <div className="container mx-auto px-4">
+        {/* Mobile Filters Button */}
+        <div className="lg:hidden mb-4 flex justify-end">
+          <Button variant="outline" onClick={() => setShowMobileFilters(true)}>
+            <Filter className="w-4 h-4 mr-2" />
+            Show Filters
+          </Button>
+        </div>
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filters Sidebar */}
-          <div className="lg:w-80 flex-shrink-0">
+          {/* Filters Sidebar (Desktop) */}
+          <div className="lg:w-80 flex-shrink-0 hidden lg:block">
             <Card className="sticky top-24">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -187,6 +201,91 @@ export default function Products() {
             </Card>
           </div>
           
+          {/* Mobile Filters Modal */}
+          <Dialog open={showMobileFilters} onOpenChange={setShowMobileFilters}>
+            <DialogContent className="p-0 max-w-xs w-full max-h-[90vh] overflow-y-auto">
+              <Card className="shadow-none border-none">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-neutral-800">Filters</h3>
+                    <Button variant="ghost" size="sm" onClick={clearFilters}>
+                      Clear All
+                    </Button>
+                  </div>
+                  {/* Search */}
+                  <div className="mb-6">
+                    <Label className="text-sm font-medium text-neutral-700 mb-3">Search</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-4 h-4" />
+                      <Input
+                        placeholder="Search products..."
+                        value={filters.search}
+                        onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  {/* Brand Filter */}
+                  <div className="mb-6">
+                    <Label className="text-sm font-medium text-neutral-700 mb-3">Brand</Label>
+                    <div className="space-y-3">
+                      {brands.map(brand => (
+                        <div key={brand} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={brand}
+                            checked={filters.brands.includes(brand)}
+                            onCheckedChange={(checked) => handleBrandChange(brand, checked as boolean)}
+                          />
+                          <Label htmlFor={brand} className="text-sm text-neutral-600 cursor-pointer">
+                            {brand}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Price Range */}
+                  <div className="mb-6">
+                    <Label className="text-sm font-medium text-neutral-700 mb-3">Price Range</Label>
+                    <RadioGroup
+                      value={filters.priceRange}
+                      onValueChange={(value) => setFilters(prev => ({ ...prev, priceRange: value }))}
+                    >
+                      {priceRanges.map(range => (
+                        <div key={range.label} className="flex items-center space-x-2">
+                          <RadioGroupItem value={range.label} id={range.label} />
+                          <Label htmlFor={range.label} className="text-sm text-neutral-600 cursor-pointer">
+                            {range.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  </div>
+                  {/* Material Filter */}
+                  <div className="mb-6">
+                    <Label className="text-sm font-medium text-neutral-700 mb-3">Material</Label>
+                    <div className="space-y-3">
+                      {materials.map(material => (
+                        <div key={material} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={material}
+                            checked={filters.materials.includes(material)}
+                            onCheckedChange={(checked) => handleMaterialChange(material, checked as boolean)}
+                          />
+                          <Label htmlFor={material} className="text-sm text-neutral-600 cursor-pointer">
+                            {material}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <Button className="w-full mt-4" onClick={() => setShowMobileFilters(false)}>
+                    Show Products
+                  </Button>
+                </CardContent>
+              </Card>
+            </DialogContent>
+          </Dialog>
+          
           {/* Products Grid */}
           <div className="flex-1">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -198,18 +297,6 @@ export default function Products() {
                   </span>
                 )}
               </h2>
-              <Select value={filters.sortBy} onValueChange={(value) => setFilters(prev => ({ ...prev, sortBy: value }))}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="popularity">Sort by popularity</SelectItem>
-                  <SelectItem value="price-low">Price: Low to High</SelectItem>
-                  <SelectItem value="price-high">Price: High to Low</SelectItem>
-                  <SelectItem value="newest">Newest first</SelectItem>
-                  <SelectItem value="rating">Highest rated</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             
             {isLoading ? (
