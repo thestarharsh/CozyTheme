@@ -4,22 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Star, ShoppingCart, Heart } from "lucide-react";
-
-interface Product {
-  id: number;
-  name: string;
-  description?: string;
-  price: string;
-  originalPrice?: string;
-  brand: string;
-  model: string;
-  imageUrl: string;
-  rating?: string;
-  reviewCount?: number;
-  featured?: boolean;
-  inStock?: boolean;
-  tags?: string[];
-}
+import type { Product } from "@shared/schema";
 
 interface ProductCardProps {
   product: Product;

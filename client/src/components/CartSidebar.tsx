@@ -171,13 +171,13 @@ export default function CartSidebar() {
                 </Link>
               </div>
 
-              {cartTotal >= 999 ? (
+              {cartTotal >= 99 ? (
                 <p className="text-xs text-green-600 text-center">
                   🎉 You qualify for free shipping!
                 </p>
               ) : (
                 <p className="text-xs text-neutral-500 text-center">
-                  Add ₹{(999 - cartTotal).toFixed(2)} more for free shipping
+                  Add ₹{(99 - cartTotal).toFixed(2)} more for free shipping
                 </p>
               )}
             </div>

@@ -28,7 +28,7 @@ import {
   type InsertOtp,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, gte, lte, like, sql, SQL } from "drizzle-orm";
+import { eq, desc, and, or, gte, lte, like, sql, SQL, inArray } from "drizzle-orm";
 import { ApiError } from "./types";
 
 // Interface for storage operations
@@ -68,6 +68,7 @@ export interface IStorage {
   getOrders(userId?: string): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] })[]>;
   getOrder(id: number): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] }) | undefined>;
   updateOrderStatus(id: number, status: string): Promise<Order>;
+  updateOrderTrackingNumber(id: number, trackingNumber: string): Promise<Order>;
   
   // Coupon operations
   getCoupon(code: string): Promise<Coupon | undefined>;
@@ -129,10 +130,10 @@ export class DatabaseStorage implements IStorage {
     
     if (filters) {
       if (filters.category) {
-        conditions.push(eq(products.brand, filters.category));
+        conditions.push(eq(products.categoryId, Number(filters.category)));
       }
       if (filters.brand) {
-        conditions.push(eq(products.brand, filters.brand));
+        conditions.push(inArray(sql`lower(${products.brand})`, filters.brand.split(',').map(b => b.toLowerCase())));
       }
       if (filters.minPrice) {
         conditions.push(gte(products.price, filters.minPrice.toString()));
@@ -141,7 +142,7 @@ export class DatabaseStorage implements IStorage {
         conditions.push(lte(products.price, filters.maxPrice.toString()));
       }
       if (filters.material) {
-        conditions.push(eq(products.material, filters.material));
+        conditions.push(inArray(sql`lower(${products.material})`, filters.material.split(',').map(m => m.toLowerCase())));
       }
       if (filters.search) {
         conditions.push(
@@ -342,16 +343,39 @@ export class DatabaseStorage implements IStorage {
   async updateOrderStatus(id: number, status: string): Promise<Order> {
     const [updatedOrder] = await db
       .update(orders)
-      .set({ status, updatedAt: new Date() })
+      .set({ status: status, updatedAt: new Date() })
       .where(eq(orders.id, id))
       .returning();
+    if (!updatedOrder) {
+      throw new ApiError(404, "Order not found");
+    }
+    return updatedOrder;
+  }
+
+  async updateOrderTrackingNumber(id: number, trackingNumber: string): Promise<Order> {
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({ trackingNumber, updatedAt: new Date() })
+      .where(eq(orders.id, id))
+      .returning();
+    if (!updatedOrder) {
+      throw new ApiError(404, 'Order not found');
+    }
     return updatedOrder;
   }
 
   // Coupon operations
   async getCoupon(code: string): Promise<Coupon | undefined> {
-    const [coupon] = await db.select().from(coupons).where(eq(coupons.code, code));
-    return coupon;
+    try {
+      const [coupon] = await db.select().from(coupons).where(eq(coupons.code, code));
+      return coupon;
+    } catch (error) {
+      throw new ApiError({
+        status: 500,
+        message: "Failed to fetch coupon",
+        details: error
+      });
+    }
   }
 
   async validateCoupon(code: string, amount: number): Promise<{ valid: boolean; discount?: number; message?: string }> {

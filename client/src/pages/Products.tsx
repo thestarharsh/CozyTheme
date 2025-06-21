@@ -7,18 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/hooks/useCart";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const brands = [
-  "Apple", "Samsung", "OnePlus", "Xiaomi", "Oppo", "Vivo", "Realme", "Motorola", "Nokia", "Google"
+  "Apple", "Samsung", "OnePlus", "Xiaomi", "Oppo", "Vivo", "Realme", "Motorola", "Nokia", "Google",
 ];
+
 const materials = [
-  "Leather", "Silicone", "Hard Plastic", "Metal", "TPU", "Rubber", "Fabric", "Wood", "Glass", "Carbon Fiber"
+  "Leather", "Silicone", "Hard Plastic", "Metal", "TPU", "Rubber", "Fabric", "Wood", "Glass", "Carbon Fiber",
 ];
+
 const priceRanges = [
   { label: "Under ₹500", min: 0, max: 500 },
   { label: "₹500 - ₹1000", min: 500, max: 1000 },
@@ -27,9 +28,10 @@ const priceRanges = [
 ];
 
 export default function Products() {
-  const [location] = useLocation();
+  const [pathname] = useLocation();
+  const search = typeof window !== "undefined" ? window.location.search : "";
   const { addToCart } = useCart();
-  
+
   const [filters, setFilters] = useState({
     search: "",
     brands: [] as string[],
@@ -40,22 +42,17 @@ export default function Products() {
 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // Parse URL parameters on mount
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.split("?")[1] || "");
+    const urlParams = new URLSearchParams(search);
     const brand = urlParams.get("brand");
-    if (brand) {
-      setFilters(prev => ({ ...prev, brands: [brand] }));
-    }
-  }, [location]);
+    if (brand) setFilters(prev => ({ ...prev, brands: [brand] }));
+  }, [search]);
 
   const buildQueryParams = () => {
     const params = new URLSearchParams();
-    
     if (filters.search) params.append("search", filters.search);
-    if (filters.brands.length > 0) params.append("brand", filters.brands[0]);
-    if (filters.materials.length > 0) params.append("material", filters.materials[0]);
-    
+    if (filters.brands.length) params.append("brand", filters.brands[0]);
+    if (filters.materials.length) params.append("material", filters.materials[0]);
     if (filters.priceRange) {
       const range = priceRanges.find(r => r.label === filters.priceRange);
       if (range) {
@@ -63,38 +60,30 @@ export default function Products() {
         params.append("maxPrice", range.max.toString());
       }
     }
-    
     return params.toString();
   };
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["/api/products", buildQueryParams()],
     queryFn: async () => {
-      const params = buildQueryParams();
-      const response = await fetch(`/api/products?${params}`);
+      const response = await fetch(`/api/products?${buildQueryParams()}`);
       if (!response.ok) throw new Error("Failed to fetch products");
       return response.json();
     },
     retry: false,
   });
 
-  const handleBrandChange = (brand: string, checked: boolean) => {
+  const handleBrandChange = (brand: string, checked: boolean) =>
     setFilters(prev => ({
       ...prev,
-      brands: checked 
-        ? [...prev.brands, brand]
-        : prev.brands.filter(b => b !== brand)
+      brands: checked ? [...prev.brands, brand] : prev.brands.filter(b => b !== brand),
     }));
-  };
 
-  const handleMaterialChange = (material: string, checked: boolean) => {
+  const handleMaterialChange = (material: string, checked: boolean) =>
     setFilters(prev => ({
       ...prev,
-      materials: checked 
-        ? [...prev.materials, material]
-        : prev.materials.filter(m => m !== material)
+      materials: checked ? [...prev.materials, material] : prev.materials.filter(m => m !== material),
     }));
-  };
 
   const clearFilters = () => {
     setFilters({

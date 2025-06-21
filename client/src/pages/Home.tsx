@@ -9,31 +9,33 @@ import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/hooks/useCart";
 import { useUser } from "@clerk/clerk-react";
 import SnakeGame from "@/components/SnakeGame";
+import type { Product } from "@shared/schema";
 
 const brands = [
-  { name: "iPhone", icon: "📱", count: "120+ covers" },
-  { name: "Samsung", icon: "📱", count: "95+ covers" },
-  { name: "OnePlus", icon: "📱", count: "45+ covers" },
-  { name: "Xiaomi", icon: "📱", count: "60+ covers" },
-  { name: "Oppo", icon: "📱", count: "35+ covers" },
-  { name: "Vivo", icon: "📱", count: "25+ covers" },
+  { name: "Apple", icon: "📱", tagline: "Premium" },
+  { name: "Samsung", icon: "📱", tagline: "Innovation" },
+  { name: "OnePlus", icon: "📱", tagline: "Flagship" },
+  { name: "Xiaomi", icon: "📱", tagline: "Style" },
+  { name: "Oppo", icon: "📱", tagline: "Trendy" },
+  { name: "Vivo", icon: "📱", tagline: "Sleek" },
 ];
+
 
 const accessories = [
   {
     title: "Screen Protectors",
     description: "Tempered glass protection for all devices",
-    image: "https://images.unsplash.com/photo-1621259182978-fbf93132d53d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
+    image: "https://plus.unsplash.com/premium_photo-1681702307639-1b3b0d7a5d7c?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8c2NyZWVuJTIwcHJvdGVjdG9yfGVufDB8fDB8fHww"
   },
   {
     title: "Wireless Chargers",
     description: "Fast and efficient charging solutions",
-    image: "https://images.unsplash.com/photo-1583394838336-acd977736f90?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
+    image: "https://images.unsplash.com/photo-1681382659831-2f3b16748a64?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTR8fGlwaG9uZSUyMGNoYXJnaW5nfGVufDB8fDB8fHww"
   },
   {
     title: "Phone Stands",
     description: "Adjustable stands for hands-free use",
-    image: "https://images.unsplash.com/photo-1580910051074-3eb694886505?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
+    image: "https://images.unsplash.com/photo-1553556135-009e5858adce?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8cGhvbmUlMjBzdGFuZHxlbnwwfHwwfHx8MA%3D%3D"
   },
 ];
 
@@ -62,7 +64,7 @@ const features = [
   {
     icon: Truck,
     title: "Free Shipping",
-    description: "On orders above ₹999"
+    description: "On orders above ₹99"
   },
   {
     icon: HeartHandshake,
@@ -72,12 +74,12 @@ const features = [
   {
     icon: Shield,
     title: "Quality Guarantee",
-    description: "30-day return policy"
+    description: "Backed by Our Promise"
   },
   {
     icon: Zap,
     title: "Fast Delivery",
-    description: "2-3 business days"
+    description: "6-14 business days"
   },
 ];
 
@@ -86,7 +88,7 @@ export default function Home() {
   const { addToCart } = useCart();
   const { isSignedIn } = useUser();
 
-  const { data: featuredProducts = [], isLoading: loadingProducts } = useQuery({
+  const { data: featuredProducts = [], isLoading: loadingProducts } = useQuery<Product[]>({
     queryKey: ["/api/products/featured"],
     retry: false,
   });
@@ -155,7 +157,7 @@ export default function Home() {
                   <CardContent className="p-6 text-center">
                     <div className="text-4xl mb-3">{brand.icon}</div>
                     <h3 className="font-semibold text-neutral-800 mb-1">{brand.name}</h3>
-                    <p className="text-sm text-neutral-500">{brand.count}</p>
+                    <p className="text-sm italic text-neutral-500">{brand.tagline}</p>
                   </CardContent>
                 </Card>
               </Link>
@@ -187,7 +189,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredProducts.map((product: any) => (
+              {featuredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} onAddToCart={() => addToCart({ productId: product.id })} />
               ))}
             </div>
@@ -226,7 +228,7 @@ export default function Home() {
                     <h3 className="text-xl font-semibold text-neutral-800 mb-2">{accessory.title}</h3>
                     <p className="text-neutral-600 mb-4">{accessory.description}</p>
                     <Button variant="link" className="text-primary p-0">
-                      Shop Now →
+                      Coming Soon →
                     </Button>
                   </div>
                 </CardContent>

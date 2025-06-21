@@ -98,6 +98,7 @@ export const orders = pgTable("orders", {
   paymentMethod: varchar("payment_method").notNull(), // online, cod
   paymentStatus: varchar("payment_status").default("pending"), // pending, completed, failed
   notes: text("notes"),
+  trackingNumber: varchar("tracking_number", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

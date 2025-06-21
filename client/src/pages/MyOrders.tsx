@@ -107,6 +107,11 @@ export default function MyOrders() {
                       <div className="text-xs text-neutral-500">
                         Order #{order.orderNumber}
                       </div>
+                      {order.trackingNumber && (
+                        <div className="text-xs text-neutral-500 pt-1">
+                          <strong>Tracking ID:</strong> {order.trackingNumber}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

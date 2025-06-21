@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit, Trash2, Package, Users, ShoppingCart, TrendingUp, Eye, Download, Upload } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Users, ShoppingCart, TrendingUp, Eye, Download, Upload, Truck } from "lucide-react";
 import { useUser } from "@clerk/clerk-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -46,6 +46,7 @@ interface Order {
   status: string;
   totalAmount: string;
   paymentMethod: string;
+  trackingNumber?: string;
   createdAt: string;
   orderItems: {
     id: number;
@@ -101,6 +102,10 @@ export default function Admin() {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+  const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<Order | null>(null);
+  const [trackingNumberInput, setTrackingNumberInput] = useState("");
+  const [orderSearchTerm, setOrderSearchTerm] = useState("");
   const [productForm, setProductForm] = useState<ProductFormData>({
     name: "",
     description: "",
@@ -116,6 +121,7 @@ export default function Admin() {
   });
   const [customBrand, setCustomBrand] = useState("");
   const [customMaterial, setCustomMaterial] = useState("");
+  const [trackingNumbers, setTrackingNumbers] = useState<{[orderId: string]: string}>({});
 
   // Queries
   const { data: products = [] as Product[] } = useQuery<Product[]>({
@@ -266,6 +272,33 @@ export default function Admin() {
       toast({
         title: "Error",
         description: "Failed to update order status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateTrackingNumberMutation = useMutation({
+    mutationFn: async ({ id, trackingNumber }: { id: number; trackingNumber: string }) => {
+      await apiRequest("PUT", `/api/orders/${id}/tracking`, { trackingNumber });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ title: "Tracking number updated successfully" });
+      setIsTrackingModalOpen(false);
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "Your session has expired. Please sign in again.",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update tracking number",
         variant: "destructive",
       });
     },
@@ -432,11 +465,30 @@ export default function Admin() {
     }
   };
 
+  const handleOpenTrackingModal = (order: Order) => {
+    setSelectedOrderForTracking(order);
+    setTrackingNumberInput(order.trackingNumber || "");
+    setIsTrackingModalOpen(true);
+  };
+
+  const handleTrackingSubmit = () => {
+    if (selectedOrderForTracking && trackingNumberInput) {
+      updateTrackingNumberMutation.mutate({
+        id: selectedOrderForTracking.id,
+        trackingNumber: trackingNumberInput,
+      });
+    }
+  };
+
   // Calculate stats
   const totalProducts = products.length;
   const totalOrders = orders.length;
   const totalRevenue = orders.reduce((sum: number, order: Order) => sum + parseFloat(order.totalAmount), 0);
   const pendingOrders = orders.filter((order: Order) => order.status === 'pending').length;
+
+  const filteredOrders = orders.filter(order =>
+    order.orderNumber.toLowerCase().includes(orderSearchTerm.toLowerCase())
+  );
 
   if (!isSignedIn) {
     return null;
@@ -451,6 +503,34 @@ export default function Admin() {
             Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress}
           </Badge>
         </div>
+
+        <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add/Edit Tracking Number</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p>Order #{selectedOrderForTracking?.orderNumber}</p>
+              <Input
+                value={trackingNumberInput}
+                onChange={(e) => setTrackingNumberInput(e.target.value)}
+                maxLength={50}
+                placeholder="Enter Tracking ID"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setIsTrackingModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleTrackingSubmit}
+                disabled={!trackingNumberInput || updateTrackingNumberMutation.isPending}
+              >
+                Save
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -834,7 +914,16 @@ export default function Admin() {
           <TabsContent value="orders">
             <Card>
               <CardHeader>
-                <CardTitle>Orders Management</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Orders Management</CardTitle>
+                  <div className="w-full md:w-1/3">
+                    <Input
+                      placeholder="Search Order Id"
+                      value={orderSearchTerm}
+                      onChange={(e) => setOrderSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -857,7 +946,7 @@ export default function Admin() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orders.map((order: Order) => (
+                    {filteredOrders.map((order: Order) => (
                       order.orderItems?.map((item, index) => (
                         <TableRow key={`${order.id}-${item.id}`}>
                           {index === 0 ? (
@@ -910,9 +999,11 @@ export default function Admin() {
                                 {new Date(order.createdAt).toLocaleDateString()}
                               </TableCell>
                               <TableCell>
-                                <Button variant="outline" size="icon">
-                                  <Eye className="w-4 h-4" />
-                                </Button>
+                                <div className="flex space-x-2">
+                                  <Button variant="outline" size="icon" onClick={() => handleOpenTrackingModal(order)}>
+                                    <Truck className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </>
                           ) : (

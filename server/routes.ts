@@ -487,6 +487,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }) as RequestHandler);
 
+  app.put('/api/orders/:id/tracking', isAuthenticated, isAdmin, (async (req: Request, res: Response) => {
+    try {
+        const orderId = parseInt(req.params.id);
+        const { trackingNumber } = req.body;
+
+        if (!trackingNumber) {
+            return res.status(400).json({ message: "Tracking number is required" });
+        }
+        
+        if (trackingNumber.length > 50) {
+            return res.status(400).json({ message: "Tracking number cannot exceed 50 characters" });
+        }
+
+        const updatedOrder = await storage.updateOrderTrackingNumber(orderId, trackingNumber);
+        res.json(updatedOrder);
+    } catch (error) {
+        console.error("Error updating tracking number:", error);
+        res.status(500).json({ message: "Failed to update tracking number" });
+    }
+  }) as RequestHandler);
+
   // Coupon routes
   app.post('/api/coupons/validate', async (req, res) => {
     try {
