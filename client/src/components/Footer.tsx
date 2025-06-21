@@ -52,51 +52,32 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
-                  Categories
-                </span>
-              </li>
-              <li>
-                <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
-                  About Us
-                </span>
-              </li>
-              <li>
-                <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
-                  Contact
-                </span>
+                <Link href="/about-us">
+                  <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
+                    About Us
+                  </span>
+                </Link>
               </li>
             </ul>
           </div>
 
-          {/* Customer Service */}
+          {/* Legal */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Customer Service</h3>
+            <h3 className="text-lg font-semibold mb-4">Legal</h3>
             <ul className="space-y-2">
               <li>
-                <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
-                  FAQ
-                </span>
+                <Link href="/privacy-policy">
+                  <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
+                    Privacy Policy
+                  </span>
+                </Link>
               </li>
               <li>
-                <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
-                  Shipping Info
-                </span>
-              </li>
-              <li>
-                <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
-                  Returns
-                </span>
-              </li>
-              <li>
-                <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
-                  Size Guide
-                </span>
-              </li>
-              <li>
-                <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
-                  Support
-                </span>
+                <Link href="/terms-of-service">
+                  <span className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
+                    Terms of Service
+                  </span>
+                </Link>
               </li>
             </ul>
           </div>
@@ -107,15 +88,15 @@ export default function Footer() {
             <ul className="space-y-2 text-neutral-400">
               <li className="flex items-center">
                 <span className="mr-2">📞</span>
-                <span>+91 98765 43210</span>
+                <span>9352502001</span>
               </li>
               <li className="flex items-center">
                 <span className="mr-2">✉️</span>
-                <span>support@cozygripz.com</span>
+                <span>cozygripzsupport@gmail.com</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 mt-1">📍</span>
-                <span>123 Tech Street, Mumbai, Maharashtra 400001</span>
+                <span>Udaipur, Rajasthan, 313002</span>
               </li>
             </ul>
           </div>
@@ -123,7 +104,7 @@ export default function Footer() {
 
         <div className="border-t border-neutral-700 mt-8 pt-8 text-center">
           <p className="text-neutral-400">
-            © 2024 CozyGripz. All rights reserved. | Privacy Policy | Terms of Service
+            © 2024 CozyGripz. All rights reserved.
           </p>
         </div>
       </div>
