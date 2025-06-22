@@ -4,6 +4,8 @@ import { ApiError } from "./types";
 export const adminAccessEmails = [
   'testdevbyharsh@gmail.com',
   "cozygripzdev@gmail.com",
+  "aaskadembla12@gmail.com",
+  "ankushpitliya11@gmail.com",
 ];
 
 export async function hasAdminAccess(userId: string): Promise<boolean> {

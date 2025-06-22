@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import PhoneDropSimulator from "@/components/PhoneDropSimulator";
 import ProductReviews from "@/components/ProductReviews";
 import { apiRequest } from "@/lib/queryClient";
+import type { Product } from "@shared/schema";
 
 interface Review {
   id: number;
@@ -29,13 +30,13 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
 
-  const { data: product, isLoading } = useQuery({
+  const { data: product, isLoading } = useQuery<Product>({
     queryKey: [`/api/products/${id}`],
     enabled: !!id,
     retry: false,
   });
 
-  const { data: reviews = [] } = useQuery({
+  const { data: reviews = [] } = useQuery<Review[]>({
     queryKey: [`/api/products/${id}/reviews`],
     queryFn: async () => {
       const response = await fetch(`/api/products/${id}/reviews`);
@@ -49,17 +50,17 @@ export default function ProductDetail() {
 
   const reviewCount = reviews.length;
   const averageRating = reviewCount > 0
-    ? (reviews.reduce((acc, review) => acc + review.rating, 0) / reviewCount).toFixed(1)
+    ? (reviews.reduce((acc: number, review: Review) => acc + review.rating, 0) / reviewCount).toFixed(1)
     : "0";
 
-  const { data: relatedProducts = [] } = useQuery({
+  const { data: relatedProducts = [] } = useQuery<Product[]>({
     queryKey: ["/api/products", product?.brand],
     queryFn: async () => {
       if (!product) return [];
       const response = await fetch(`/api/products?brand=${product.brand}&limit=4`);
       if (!response.ok) throw new Error("Failed to fetch related products");
       const data = await response.json();
-      return data.filter((p: any) => p.id !== product.id).slice(0, 4);
+      return data.filter((p: Product) => p.id !== product.id).slice(0, 4);
     },
     enabled: !!product,
     retry: false,
@@ -100,7 +101,7 @@ export default function ProductDetail() {
     if (navigator.share) {
       navigator.share({
         title: product?.name,
-        text: product?.description,
+        text: product?.description ?? undefined,
         url: window.location.href,
       });
     } else {
@@ -388,7 +389,7 @@ export default function ProductDetail() {
           <div className="mt-16">
             <h2 className="text-2xl font-bold text-neutral-800 mb-8">Related Products</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((relatedProduct: any) => (
+              {relatedProducts.map((relatedProduct) => (
                 <Link key={relatedProduct.id} href={`/products/${relatedProduct.id}`}>
                   <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer">
                     <div className="aspect-square overflow-hidden rounded-t-xl">

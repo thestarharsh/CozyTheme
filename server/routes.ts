@@ -36,6 +36,8 @@ const razorpay = new Razorpay({
 const adminAccessEmails = [
   'testdevbyharsh@gmail.com',
   "cozygripzdev@gmail.com",
+  "aaskadembla12@gmail.com",
+  "ankushpitliya11@gmail.com",
 ];
 
 // Admin middleware
@@ -384,11 +386,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentStatus: 'pending'
       });
 
-      const order = await storage.createOrder(validatedOrderData, validatedItems);
-
+      const order = await storage.createOrder(validatedOrderData, []); // create order first
+      // Now insert order items with orderId
+      await storage.insertOrderItems(validatedItems.map(item => ({ ...item, orderId: order.id })));
       // Clear cart after successful order
       await storage.clearCart(userId);
-
       res.json(order);
     } catch (error) {
       if (error instanceof z.ZodError) {

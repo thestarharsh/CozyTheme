@@ -65,8 +65,8 @@ export interface IStorage {
   
   // Order operations
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
-  getOrders(userId?: string): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] })[]>;
-  getOrder(id: number): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] }) | undefined>;
+  getOrders(userId?: string): Promise<(Order & { orderItems: (OrderItem & { product: Product | null })[] })[]>;
+  getOrder(id: number): Promise<(Order & { orderItems: (OrderItem & { product: Product | null })[] }) | undefined>;
   updateOrderStatus(id: number, status: string): Promise<Order>;
   updateOrderTrackingNumber(id: number, trackingNumber: string): Promise<Order>;
   
@@ -81,6 +81,8 @@ export interface IStorage {
   // Review operations
   createReview(review: InsertReview): Promise<Review>;
   getProductReviews(productId: number): Promise<(Review & { user: User })[]>;
+
+  insertOrderItems(items: InsertOrderItem[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -145,25 +147,25 @@ export class DatabaseStorage implements IStorage {
         conditions.push(inArray(sql`lower(${products.material})`, filters.material.split(',').map(m => m.toLowerCase())));
       }
       if (filters.search) {
-        conditions.push(
-          or(
-            like(products.name, `%${filters.search}%`),
-            like(products.description, `%${filters.search}%`),
-            like(products.brand, `%${filters.search}%`),
-            like(products.model, `%${filters.search}%`)
-          )
-        );
+        const searchConditions = [
+          like(products.name, `%${filters.search}%`),
+          like(products.description, `%${filters.search}%`),
+          like(products.brand, `%${filters.search}%`),
+          like(products.model, `%${filters.search}%`)
+        ];
+        if (searchConditions.length > 0) {
+          const orCondition = or(...searchConditions);
+          if (orCondition) {
+            conditions.push(orCondition);
+          }
+        }
       }
     }
     
     try {
-      return await query.where(and(...conditions)).orderBy(desc(products.createdAt));
+      return await query.where(and(...conditions.filter(Boolean))).orderBy(desc(products.createdAt));
     } catch (error) {
-      throw new ApiError({
-        status: 500,
-        message: "Failed to fetch products",
-        details: error
-      });
+      throw new ApiError(500, "Failed to fetch products", undefined, error);
     }
   }
 
@@ -172,11 +174,7 @@ export class DatabaseStorage implements IStorage {
       const [product] = await db.select().from(products).where(eq(products.id, id));
       return product;
     } catch (error) {
-      throw new ApiError({
-        status: 500,
-        message: "Failed to fetch product",
-        details: error
-      });
+      throw new ApiError(500, "Failed to fetch product", undefined, error);
     }
   }
 
@@ -236,7 +234,7 @@ export class DatabaseStorage implements IStorage {
       // Update quantity
       const [updatedItem] = await db
         .update(cartItems)
-        .set({ quantity: existingItem.quantity + cartItem.quantity })
+        .set({ quantity: existingItem.quantity + (cartItem.quantity ?? 1) })
         .where(eq(cartItems.id, existingItem.id))
         .returning();
       return updatedItem;
@@ -269,22 +267,18 @@ export class DatabaseStorage implements IStorage {
     const [newOrder] = await db.insert(orders).values(order).returning();
     
     // Insert order items
-    await db.insert(orderItems).values(
-      items.map(item => ({ ...item, orderId: newOrder.id }))
-    );
+    await this.insertOrderItems(items);
     
     return newOrder;
   }
 
-  async getOrders(userId?: string): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] })[]> {
+  async getOrders(userId?: string): Promise<(Order & { orderItems: (OrderItem & { product: Product | null })[] })[]> {
     try {
       let query = db.select().from(orders);
       
-      if (userId) {
-        query = query.where(eq(orders.userId, userId));
-      }
-      
-      const orderList = await query.orderBy(desc(orders.createdAt));
+      const orderList = await (userId
+        ? query.where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt))
+        : query.orderBy(desc(orders.createdAt)));
       
       // Fetch order items with products for each order
       const ordersWithItems = await Promise.all(
@@ -300,7 +294,7 @@ export class DatabaseStorage implements IStorage {
             .then(rows =>
               rows.map(row => ({
                 ...row.order_items,
-                product: row.products
+                product: row.products ?? null
               }))
             );
 
@@ -318,7 +312,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getOrder(id: number): Promise<(Order & { orderItems: (OrderItem & { product: Product })[] }) | undefined> {
+  async getOrder(id: number): Promise<(Order & { orderItems: (OrderItem & { product: Product | null })[] }) | undefined> {
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
     if (!order) return undefined;
 
@@ -330,7 +324,7 @@ export class DatabaseStorage implements IStorage {
       .then(rows =>
         rows.map(row => ({
           ...row.order_items,
-          product: row.products!
+          product: row.products ?? null
         }))
       );
 
@@ -370,11 +364,7 @@ export class DatabaseStorage implements IStorage {
       const [coupon] = await db.select().from(coupons).where(eq(coupons.code, code));
       return coupon;
     } catch (error) {
-      throw new ApiError({
-        status: 500,
-        message: "Failed to fetch coupon",
-        details: error
-      });
+      throw new ApiError(500, "Failed to fetch coupon", undefined, error);
     }
   }
 
@@ -397,7 +387,7 @@ export class DatabaseStorage implements IStorage {
       return { valid: false, message: `Minimum order amount is ₹${coupon.minOrderAmount}` };
     }
     
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+    if (coupon.usageLimit && (coupon.usedCount ?? 0) >= coupon.usageLimit) {
       return { valid: false, message: "Coupon usage limit reached" };
     }
     
@@ -474,6 +464,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(reviews.createdAt));
 
     return productReviews as (Review & { user: User })[];
+  }
+
+  async insertOrderItems(items: InsertOrderItem[]): Promise<void> {
+    if (!items.length) return;
+    await db.insert(orderItems).values(items);
   }
 }
 

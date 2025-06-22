@@ -3,13 +3,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useUser } from "@clerk/clerk-react";
+import type { CartItem, Product } from "@shared/schema";
 
 export function useCart() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isSignedIn } = useUser();
 
-  const { data: cartItems = [], isLoading } = useQuery({
+  const { data: cartItems = [], isLoading } = useQuery<(CartItem & { product?: Product })[]>({
     queryKey: ["/api/cart"],
     retry: false,
   });
@@ -133,11 +134,11 @@ export function useCart() {
     },
   });
 
-  const cartTotal = cartItems.reduce((total: number, item: any) => {
-    return total + (parseFloat(item.product.price) * item.quantity);
+  const cartTotal = cartItems.reduce((total: number, item) => {
+    return total + ((item.product ? parseFloat(item.product.price) : 0) * item.quantity);
   }, 0);
 
-  const cartCount = cartItems.reduce((count: number, item: any) => {
+  const cartCount = cartItems.reduce((count: number, item) => {
     return count + item.quantity;
   }, 0);
 

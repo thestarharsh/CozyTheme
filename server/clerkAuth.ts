@@ -1,4 +1,4 @@
-import type { Express, RequestHandler, Request, Response, NextFunction } from "express";
+import type { Express, RequestHandler, Request as ExpressRequest, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import {
@@ -125,7 +125,7 @@ export async function setupAuth(app: Express) {
   // Logout: revoke the current session at Clerk, then clear cookie & redirect.
   app.get("/api/logout", async (req, res) => {
     try {
-      const sessionId = req?.auth?.sessionId;
+      const sessionId = (req as AuthenticatedRequest)?.auth?.sessionId;
       if (sessionId) {
         await clerkClient.sessions.revokeSession(sessionId);
       }
@@ -146,3 +146,7 @@ export async function setupAuth(app: Express) {
 
 // Usage: app.get("/api/secure", isAuthenticated, (req,res)=>{...})
 export const isAuthenticated: RequestHandler = ClerkExpressRequireAuth();
+
+export interface AuthenticatedRequest extends ExpressRequest {
+  auth?: AuthObject;
+}

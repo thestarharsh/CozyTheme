@@ -20,6 +20,8 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 const adminAccessEmails = [
   'testdevbyharsh@gmail.com',
   "cozygripzdev@gmail.com",
+  "aaskadembla12@gmail.com",
+  "ankushpitliya11@gmail.com",
 ];
 
 interface Product {

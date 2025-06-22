@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Package, Shield, Smartphone } from "lucide-react";
 import { useUser } from "@clerk/clerk-react";
+import type { Order, OrderItem, Product } from "@shared/schema";
 
 export default function MyOrders() {
   const { isSignedIn } = useUser();
 
-  const { data: userOrders = [], isLoading: loadingOrders } = useQuery({
+  const { data: userOrders = [], isLoading: loadingOrders } = useQuery<(Order & { orderItems: (OrderItem & { product: Product })[] })[]>({
     queryKey: ["/api/orders"],
     retry: false,
     enabled: isSignedIn,
@@ -74,8 +75,8 @@ export default function MyOrders() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {userOrders.map((order: any) => (
-              order.orderItems?.map((item: any) => (
+            {userOrders.map((order) => (
+              order.orderItems?.map((item) => (
                 <Card key={`${order.id}-${item.id}`} className="overflow-hidden">
                   <div className="relative">
                     <img

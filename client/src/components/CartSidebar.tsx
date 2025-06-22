@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShoppingCart, Plus, Minus, Trash2, X } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
+import type { CartItem, Product } from "@shared/schema";
 
 export default function CartSidebar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -76,61 +77,25 @@ export default function CartSidebar() {
             {/* Cart Items */}
             <ScrollArea className="flex-1 pr-6 cart-scroll">
               <div className="space-y-4 py-4">
-                {cartItems.map((item: any) => (
+                {cartItems.map((item) => (
                   <div key={item.id} className="flex items-start space-x-3 p-3 border rounded-lg">
                     <img
-                      src={item.product.imageUrl}
-                      alt={item.product.name}
-                      className="w-16 h-16 object-cover rounded-md flex-shrink-0"
+                      src={item.product ? item.product.imageUrl : ''}
+                      alt={item.product ? item.product.name : 'Product'}
+                      className="w-16 h-16 object-contain rounded"
                     />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-neutral-800 text-sm line-clamp-2">
-                        {item.product.name}
-                      </h4>
-                      <p className="text-xs text-neutral-500 mb-2">
-                        {item.product.brand} {item.product.model}
-                      </p>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-primary">
-                          ₹{item.product.price}
-                        </span>
-                        
-                        <div className="flex items-center space-x-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="w-7 h-7"
-                            onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1 || isUpdating}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-8 text-center text-sm">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="w-7 h-7"
-                            onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                            disabled={isUpdating}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-lg">
+                        {item.product ? item.product.name : 'Unknown Product'}
                       </div>
-                      
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-sm text-neutral-600">
-                          Total: ₹{(parseFloat(item.product.price) * item.quantity).toFixed(2)}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-7 h-7 text-red-500 hover:text-red-700"
-                          onClick={() => handleRemoveItem(item.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                      <div className="text-sm text-neutral-600">
+                        {item.product ? `${item.product.brand} ${item.product.model}` : ''}
+                      </div>
+                      <div className="text-sm font-medium mt-1">
+                        ₹{item.product ? item.product.price : '0'}
+                      </div>
+                      <div className="text-xs text-neutral-500">
+                        Total: ₹{item.product ? (parseFloat(item.product.price) * item.quantity).toFixed(2) : '0.00'}
                       </div>
                     </div>
                   </div>
