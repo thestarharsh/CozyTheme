@@ -5,9 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Search, User, ShoppingCart, Menu, Smartphone } from "lucide-react";
-import { useUser, useClerk, SignInButton, UserButton } from "@clerk/clerk-react";
+import {
+  useUser,
+  useClerk,
+  SignInButton,
+  UserButton,
+} from "@clerk/clerk-react";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
+import CGLogo from "../assets/CZ Logo Website.jpg";
 
 export default function Header() {
   const [location, navigate] = useLocation();
@@ -27,10 +33,16 @@ export default function Header() {
 
   const navLinks = [
     { href: "/", label: "Home", active: location === "/" },
-    { href: "/products", label: "Products", active: location.startsWith("/products") },
-    { href: "/categories", label: "Categories", active: location === "/categories" },
-    { href: "/my-orders", label: "My Orders", active: location === "/my-orders" },
-    { href: "/contact", label: "Contact", active: location === "/contact" },
+    {
+      href: "/products",
+      label: "Products",
+      active: location.startsWith("/products"),
+    },
+    {
+      href: "/my-orders",
+      label: "My Orders",
+      active: location === "/my-orders",
+    },
   ];
 
   return (
@@ -39,11 +51,14 @@ export default function Header() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/">
-            <div className="flex items-center space-x-2 cursor-pointer">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Smartphone className="text-white w-5 h-5" />
-              </div>
-              <span className="text-xl font-bold text-neutral-800">CozyGripz</span>
+            <div className="flex items-center cursor-pointer rounded-lg p-1">
+              {/*           ↑ optional subtle padding instead of a fixed box */}
+              <img
+                src={CGLogo}
+                alt="CozyGripz Logo"
+                /* grow with header: 2 rem on mobile → 3 rem md → 4 rem lg */
+                className="h-8 w-auto object-contain"
+              />
             </div>
           </Link>
 
@@ -63,7 +78,10 @@ export default function Header() {
           </nav>
 
           {/* Desktop Search */}
-          <form onSubmit={handleSearch} className="hidden md:flex relative flex-1 max-w-80 mx-8">
+          <form
+            onSubmit={handleSearch}
+            className="hidden md:flex relative flex-1 max-w-80 mx-8"
+          >
             <Input
               type="text"
               placeholder="Search for mobile covers..."
@@ -77,9 +95,6 @@ export default function Header() {
           {/* Actions */}
           <div className="flex items-center space-x-2">
             {/* Remove search button from mobile view */}
-            <Button variant="ghost" size="icon" className="hidden md:flex">
-              <Search className="w-5 h-5" />
-            </Button>
 
             {isSignedIn ? (
               <div className="flex items-center space-x-4">
@@ -156,7 +171,10 @@ export default function Header() {
                     {isSignedIn ? (
                       <>
                         <div className="text-sm text-neutral-600">
-                          Welcome, {user?.firstName || user?.primaryEmailAddress?.emailAddress}!
+                          Welcome,{" "}
+                          {user?.firstName ||
+                            user?.primaryEmailAddress?.emailAddress}
+                          !
                         </div>
                       </>
                     ) : (

@@ -134,7 +134,7 @@ export default function Home() {
               <div className="absolute -bottom-4 -left-4 bg-white p-4 rounded-lg shadow-lg">
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium">1000+ Happy Customers</span>
+                  <span className="text-sm font-medium">500+ Happy Customers</span>
                 </div>
               </div>
             </div>
