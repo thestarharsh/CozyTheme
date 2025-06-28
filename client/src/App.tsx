@@ -17,10 +17,13 @@ import { ProductForm } from './components/ProductForm';
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import AboutUs from "./pages/AboutUs";
+import { useScrollToTop } from "./hooks/useScrollToTop";
 
 function Router() {
   const { isSignedIn, isLoaded } = useUser();
   const [location] = useLocation();
+  
+  useScrollToTop();
 
   if (!isLoaded) {
     return (
