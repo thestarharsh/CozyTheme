@@ -41,20 +41,20 @@ const accessories = [
 
 const testimonials = [
   {
-    name: "Priya Sharma",
+    name: "Bhushan Koli",
     location: "Mumbai",
     rating: 5,
-    comment: "Amazing quality and fast delivery! The leather case I ordered exceeded my expectations. Perfect fit for my iPhone."
+    comment: "Amazing quality and fast delivery! The silicone case I ordered exceeded my expectations. Perfect fit for my iPhone."
   },
   {
-    name: "Rahul Patel",
-    location: "Delhi",
+    name: "Saniya Gehani",
+    location: "Udaipur",
     rating: 5,
-    comment: "Best customer service and product quality. I've been buying from CozyGripz for over a year now. Highly recommended!"
+    comment: "Best customer service and product quality. Feeling satified after buying from CozyGripz. Highly recommended!"
   },
   {
-    name: "Anjali Singh",
-    location: "Bangalore",
+    name: "Dhruvi Shah",
+    location: "Ahmedabad",
     rating: 5,
     comment: "The rugged case saved my phone from multiple drops. Excellent protection without compromising on style."
   },
@@ -243,7 +243,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl lg:text-4xl font-bold text-neutral-800 mb-4">What Our Customers Say</h2>
-            <p className="text-neutral-600 max-w-2xl mx-auto">Join thousands of satisfied customers who trust CozyGripz</p>
+            <p className="text-neutral-600 max-w-2xl mx-auto">Join hundreds of satisfied customers who trust CozyGripz</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -257,7 +257,9 @@ export default function Home() {
                   </div>
                   <p className="text-neutral-600 mb-4">"{testimonial.comment}"</p>
                   <div className="flex items-center">
-                    <div className="w-10 h-10 bg-neutral-200 rounded-full mr-3"></div>
+                    <div className="w-10 h-10 bg-neutral-200 rounded-full flex items-center justify-center text-lg font-semibold text-neutral-700 mr-3">
+                      {testimonial.name.charAt(0)}
+                    </div>
                     <div>
                       <h4 className="font-semibold text-neutral-800">{testimonial.name}</h4>
                       <p className="text-sm text-neutral-500">{testimonial.location}</p>

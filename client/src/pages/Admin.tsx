@@ -852,7 +852,7 @@ export default function Admin() {
                             <img
                               src={product.imageUrl}
                               alt={product.name}
-                              className="w-10 h-10 object-cover rounded"
+                              className="w-10 h-10 object-contain rounded"
                             />
                             <div>
                               <div className="font-medium">{product.name}</div>

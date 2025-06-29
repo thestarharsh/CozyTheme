@@ -184,7 +184,7 @@ export default function ProductDetail() {
                 <img
                   src={images[selectedImage]}
                   alt={product.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               </div>
             </Card>
@@ -202,7 +202,7 @@ export default function ProductDetail() {
                       <img
                         src={image}
                         alt={`${product.name} ${index + 1}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                     </div>
                   </Card>
@@ -351,7 +351,7 @@ export default function ProductDetail() {
               </div>
               <div className="flex items-center space-x-2">
                 <RotateCcw className="w-5 h-5 text-primary" />
-                <span className="font-medium">7-Day Easy Returns</span>
+                <span className="font-medium">6-14 Days Fast Delivery</span>
               </div>
             </div>
 
@@ -396,7 +396,7 @@ export default function ProductDetail() {
                       <img
                         src={relatedProduct.imageUrl}
                         alt={relatedProduct.name}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-contain hover:scale-105 transition-transform duration-300"
                       />
                     </div>
                     <CardContent className="p-4">
