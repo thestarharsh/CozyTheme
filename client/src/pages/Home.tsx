@@ -107,7 +107,7 @@ export default function Home() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="text-center lg:text-left">
               <h1 className="text-4xl lg:text-6xl font-bold text-neutral-800 mb-6">
-                Protect Your <span className="text-primary">Mobile</span> with Style
+                Not Just <span className="text-primary italic">Covers</span><br /> A Cozy Revolution
               </h1>
               <p className="text-lg text-neutral-600 mb-8 max-w-lg mx-auto lg:mx-0">
                 Discover premium mobile covers that combine ultimate protection with stunning design. Because your phone deserves the best.
