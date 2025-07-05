@@ -224,6 +224,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.file) {
         const imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
         productData.imageUrl = imageBase64;
+      } else {
+        const existingProduct = await storage.getProduct(productId);
+        if (existingProduct) {
+          productData.imageUrl = existingProduct.imageUrl;
+        }
       }
 
       const validatedData = insertProductSchema.parse(productData);

@@ -809,10 +809,33 @@ export default function Admin() {
                           <p className="mt-1 text-sm text-gray-500">
                             Max file size: 5MB. Supported formats: JPG, JPEG, PNG, GIF
                           </p>
+                          
+                          {/* Current Image Preview */}
+                          {selectedProduct && !productForm.image && (
+                            <div className="mt-3">
+                              <p className="text-sm text-gray-600 mb-2">Current Image:</p>
+                              <div className="w-32 h-32 border rounded-lg overflow-hidden">
+                                <img
+                                  src={selectedProduct.imageUrl}
+                                  alt={selectedProduct.name}
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* New Image Preview */}
                           {productForm.image && (
-                            <p className="mt-1 text-sm text-green-600">
-                              Image selected: {productForm.image.name}
-                            </p>
+                            <div className="mt-3">
+                              <p className="text-sm text-green-600 mb-2">New Image Selected: {productForm.image.name}</p>
+                              <div className="w-32 h-32 border rounded-lg overflow-hidden">
+                                <img
+                                  src={URL.createObjectURL(productForm?.image)}
+                                  alt="Preview"
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            </div>
                           )}
                         </div>
 
